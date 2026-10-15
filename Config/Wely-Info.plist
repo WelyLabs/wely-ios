@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Where the app talks to; set per configuration in the WELY_* build settings. -->
+	<key>WelyGatewayURL</key>
+	<string>$(WELY_GATEWAY_URL)</string>
+	<key>WelyKeycloakURL</key>
+	<string>$(WELY_KEYCLOAK_URL)</string>
+	<key>WelyWebURL</key>
+	<string>$(WELY_WEB_URL)</string>
+	<!-- The local stack is plain HTTP on localhost / the LAN. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
