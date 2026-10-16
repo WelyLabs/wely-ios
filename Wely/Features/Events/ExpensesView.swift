@@ -18,9 +18,9 @@ struct ExpensesView: View {
             if let ledger {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Total dépensé").font(.subheadline).foregroundStyle(.secondary)
+                        Text("Total dépensé").font(.wely.subheadline).foregroundStyle(.secondary)
                         Text(Money.format(cents: ledger.totalCents, currency: ledger.currency))
-                            .font(.largeTitle.bold())
+                            .font(.wely.largeTitle.bold())
                     }
                     .padding(.vertical, 4)
                 }
@@ -30,7 +30,7 @@ struct ExpensesView: View {
                         ForEach(ledger.balances, id: \.userId) { balance in
                             PersonRow(userId: balance.userId, subtitle: balance.netCents >= 0 ? "doit recevoir" : "doit") {
                                 Text(Money.format(cents: abs(balance.netCents), currency: ledger.currency))
-                                    .font(.body.monospacedDigit().weight(.semibold))
+                                    .font(.wely.body.monospacedDigit().weight(.semibold))
                                     .foregroundStyle(balance.netCents >= 0 ? .green : .red)
                             }
                         }
@@ -46,10 +46,10 @@ struct ExpensesView: View {
                                     Image(systemName: "arrow.right").foregroundStyle(.secondary)
                                     AvatarView(userId: transfer.toUserId, size: 28)
                                     Text("\(app.people.name(transfer.fromUserId)) → \(app.people.name(transfer.toUserId))")
-                                        .font(.subheadline)
+                                        .font(.wely.subheadline)
                                     Spacer()
                                     Text(Money.format(cents: transfer.amountCents, currency: ledger.currency))
-                                        .font(.subheadline.monospacedDigit().bold())
+                                        .font(.wely.subheadline.monospacedDigit().bold())
                                 }
                                 if transfer.fromUserId == app.people.myId || transfer.toUserId == app.people.myId {
                                     AsyncButton {
@@ -57,9 +57,9 @@ struct ExpensesView: View {
                                                                                                      amountCents: transfer.amountCents))
                                         await load()
                                     } label: {
-                                        Label("Marquer comme remboursé", systemImage: "checkmark.circle").font(.caption.bold())
+                                        Label("Marquer comme remboursé", systemImage: "checkmark.circle").font(.wely.caption.bold())
                                     }
-                                    .buttonStyle(.bordered)
+                                    .buttonStyle(.welySecondary)
                                 }
                             }
                         }
@@ -88,7 +88,7 @@ struct ExpensesView: View {
         .overlay { if ledger == nil, loadError == nil { ProgressView() } }
         .overlay {
             if let loadError, ledger == nil {
-                ContentUnavailableView("Dépenses indisponibles", systemImage: "eurosign.circle", description: Text(loadError))
+                EmptyStateView(title: "Dépenses indisponibles", systemImage: "eurosign.circle", message: loadError)
             }
         }
         .navigationTitle("Dépenses")
@@ -136,19 +136,19 @@ private struct ExpenseRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: expense.isSettlement ? "arrow.left.arrow.right.circle.fill" : "cart.fill")
-                .font(.title3)
+                .font(.wely.title3)
                 .foregroundStyle(expense.isSettlement ? .green : Theme.orange)
                 .frame(width: 32)
             VStack(alignment: .leading, spacing: 2) {
-                Text(expense.isSettlement ? "Remboursement" : expense.title).font(.body.weight(.medium))
+                Text(expense.isSettlement ? "Remboursement" : expense.title).font(.wely.body.weight(.medium))
                 Text(expense.isSettlement
                      ? "\(app.people.name(expense.paidBy)) → \(expense.owedCents?.keys.first.map { app.people.name($0) } ?? "")"
                      : "Payé par \(app.people.name(expense.paidBy))")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.wely.caption).foregroundStyle(.secondary)
             }
             Spacer()
             Text(Money.format(cents: expense.amountCents, currency: expense.currency))
-                .font(.body.monospacedDigit().weight(.semibold))
+                .font(.wely.body.monospacedDigit().weight(.semibold))
         }
     }
 }
@@ -187,7 +187,7 @@ struct ExpenseFormView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section {
                     TextField("Quoi (ex. Courses, Essence…)", text: $title)

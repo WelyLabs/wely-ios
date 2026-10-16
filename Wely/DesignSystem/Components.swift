@@ -20,7 +20,7 @@ struct AvatarView: View {
         ZStack {
             Circle().fill(Self.color(for: userId))
             Text(Person.initials(of: person.name))
-                .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
+                .font(.wely.fixed(size * 0.38, .semibold))
                 .foregroundStyle(.white)
             if let url = app.people.picture(userId) {
                 AsyncImage(url: url) { image in
@@ -52,13 +52,15 @@ struct AvatarStack: View {
         HStack(spacing: -size * 0.3) {
             ForEach(userIds.prefix(limit), id: \.self) { id in
                 AvatarView(userId: id, size: size)
-                    .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                    .overlay(Circle().stroke(Theme.card, lineWidth: 2))
             }
             if userIds.count > limit {
                 Text("+\(userIds.count - limit)")
-                    .font(.caption2.bold())
+                    .font(.wely.caption2.bold())
+                    .foregroundStyle(Theme.ink2)
                     .frame(width: size, height: size)
-                    .background(Color(.tertiarySystemFill), in: Circle())
+                    .background(Theme.subtle, in: Circle())
+                    .overlay(Circle().stroke(Theme.card, lineWidth: 2))
             }
         }
     }
@@ -75,9 +77,9 @@ struct PersonRow<Trailing: View>: View {
         HStack(spacing: 12) {
             AvatarView(userId: userId, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(app.people.person(userId).name).font(.body.weight(.medium))
+                Text(app.people.person(userId).name).font(.wely.body.weight(.medium))
                 Text(subtitle ?? app.people.person(userId).handle)
-                    .font(.caption)
+                    .font(.wely.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
@@ -109,15 +111,15 @@ struct EventCard: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text(event.title)
-                    .font(.headline)
+                    .font(.wely.title3)
                     .lineLimit(2)
                 Label(event.isOpenPoll ? "Date en cours de sondage" : event.startDate.formatted(.dateTime.weekday(.wide).hour().minute().locale(.wely)).capitalized,
                       systemImage: event.isOpenPoll ? "chart.bar.doc.horizontal" : "clock")
-                    .font(.subheadline)
+                    .font(.wely.subheadline)
                     .foregroundStyle(.secondary)
                 if !event.location.isEmpty {
                     Label(event.location, systemImage: "mappin.and.ellipse")
-                        .font(.subheadline)
+                        .font(.wely.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -126,18 +128,19 @@ struct EventCard: View {
                     Spacer()
                     if let visibility = event.visibility, visibility != .unknown {
                         Image(systemName: visibility.systemImage)
-                            .font(.caption)
+                            .font(.wely.caption)
                             .foregroundStyle(.secondary)
                             .accessibilityLabel(visibility.label)
                     }
                 }
                 .padding(.top, 2)
             }
-            .padding(12)
+            .padding(14)
         }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous).strokeBorder(Theme.border))
+        .shadow(color: .black.opacity(0.05), radius: 14, y: 6)
     }
 }
 
@@ -151,7 +154,7 @@ struct PersonChip: View {
         HStack(spacing: 6) {
             AvatarView(userId: userId, size: 20)
             Text([prefix, userId == app.people.myId ? (prefix == nil ? "Vous" : "vous") : app.people.name(userId)].compactMap { $0 }.joined(separator: " "))
-                .font(.caption)
+                .font(.wely.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -188,7 +191,7 @@ struct EventCover: View {
 /// A coverless event's colours, stable per event, and a symbol guessed from its title.
 enum EventTint {
     private static let pairs: [(Color, Color)] = [
-        (Theme.blue, Theme.orange), (Color(red: 0.06, green: 0.46, blue: 0.43), Color(red: 0.40, green: 0.80, blue: 0.60)),
+        (Theme.gradientStops[0], Theme.gradientStops[4]), (Color(red: 0.06, green: 0.46, blue: 0.43), Color(red: 0.40, green: 0.80, blue: 0.60)),
         (Color(red: 0.49, green: 0.23, blue: 0.93), Color(red: 0.93, green: 0.36, blue: 0.62)),
         (Color(red: 0.76, green: 0.25, blue: 0.05), Color(red: 0.98, green: 0.70, blue: 0.20)),
     ]
@@ -227,18 +230,70 @@ struct DateBadge: View {
     var body: some View {
         VStack(spacing: 0) {
             Text(tentative ? "?" : date.formatted(.dateTime.day()))
-                .font(.title3.bold())
+                .font(.wely.fixed(20, .bold))
+                .foregroundStyle(Theme.ink)
             Text(tentative ? "SONDAGE" : date.formatted(.dateTime.month(.abbreviated).locale(.wely)).uppercased().replacingOccurrences(of: ".", with: ""))
-                .font(.system(size: 9, weight: .bold))
+                .font(.wely.fixed(9, .bold))
                 .foregroundStyle(Theme.orange)
         }
         .frame(minWidth: 46, minHeight: 46)
         .padding(.horizontal, 4)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .background(Theme.card.opacity(0.92), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
     }
 }
 
 // MARK: States
+
+/// Wely's empty or failed screen: the symbol in a soft gradient disc, a title, a line, actions.
+struct EmptyStateView<Actions: View>: View {
+    let title: String
+    let systemImage: String
+    var message: String?
+    @ViewBuilder var actions: () -> Actions
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(Theme.gradient)
+                .frame(width: 76, height: 76)
+                .background(Theme.gradient.opacity(0.12), in: Circle())
+            Text(title)
+                .font(.wely.title3)
+                .foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.center)
+            if let message {
+                Text(message)
+                    .font(.wely.subheadline)
+                    .foregroundStyle(Theme.ink2)
+                    .multilineTextAlignment(.center)
+            }
+            actions().padding(.top, 4)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+extension EmptyStateView where Actions == EmptyView {
+    init(title: String, systemImage: String, message: String? = nil) {
+        self.init(title: title, systemImage: systemImage, message: message) { EmptyView() }
+    }
+}
+
+/// A section's title above its card, as wely-web's: small, semibold, in the soft ink.
+struct SectionTitle: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.wely.footnote.weight(.semibold))
+            .foregroundStyle(Theme.ink2)
+            .textCase(.uppercase)
+            .tracking(0.6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
 
 /// A screen's load: loading, the value, or why not.
 enum Loadable<Value> {
@@ -265,13 +320,9 @@ struct LoadableView<Value, Content: View>: View {
         case .loaded(let value):
             content(value)
         case .failed(let message):
-            ContentUnavailableView {
-                Label("Impossible de charger", systemImage: "wifi.exclamationmark")
-            } description: {
-                Text(message)
-            } actions: {
+            EmptyStateView(title: "Impossible de charger", systemImage: "wifi.exclamationmark", message: message) {
                 if let retry {
-                    Button("Réessayer") { Task { await retry() } }.buttonStyle(.borderedProminent)
+                    Button("Réessayer") { Task { await retry() } }.buttonStyle(.welyPrimary)
                 }
             }
         }
@@ -281,16 +332,28 @@ struct LoadableView<Value, Content: View>: View {
 extension EnvironmentValues {
     /// Where a nested `AsyncButton` reports its failure: the screen's alert. Without it, the
     /// button shows its own — which never appears from a toolbar item.
-    @Entry var reportError: ((String) -> Void)?
+    @Entry var reportError: ReportErrorAction?
+}
+
+/// What `reportError` holds: a closure in a struct, compared by the screen that set it, so the
+/// buttons reading it are not invalidated on every update.
+struct ReportErrorAction: Equatable {
+    let id: UUID
+    let handler: (String) -> Void
+
+    func callAsFunction(_ message: String) { handler(message) }
+
+    static func == (a: Self, b: Self) -> Bool { a.id == b.id }
 }
 
 /// A failed action's message, shown as an alert; nested `AsyncButton`s report here.
 struct ErrorAlert: ViewModifier {
     @Binding var message: String?
+    @State private var id = UUID()
 
     func body(content: Content) -> some View {
         content
-            .environment(\.reportError) { message = $0 }
+            .environment(\.reportError, ReportErrorAction(id: id) { message = $0 })
             .alert("Oups", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -342,11 +405,11 @@ struct TagView: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(.caption.weight(.medium))
+            .font(.wely.caption.weight(.medium))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Theme.blue.opacity(0.12), in: Capsule())
-            .foregroundStyle(Theme.blue)
+            .background(Theme.blue.opacity(0.1), in: Capsule())
+            .foregroundStyle(Theme.primary)
     }
 }
 

@@ -9,6 +9,11 @@ struct UserService {
     func update(_ update: ProfileUpdate) async throws -> UserProfile { try await api.put("\(base)/profile", body: update) }
     func about() async throws -> ProfileAbout { try await api.get("\(base)/profile/about") }
     func saveAbout(_ about: ProfileAbout) async throws -> ProfileAbout { try await api.put("\(base)/profile/about", body: about) }
+    func preferences() async throws -> UserPreferences { try await api.get("\(base)/profile/preferences") }
+    func savePreferences(_ preferences: UserPreferences) async throws -> UserPreferences { try await api.put("\(base)/profile/preferences", body: preferences) }
+    func deletionEligibility() async throws -> DeletionEligibility { try await api.get("\(base)/profile/deletion") }
+    /// wely-users answers 202 once the deletion is committed; it wants a sign-in under five minutes old.
+    func deleteAccount() async throws { try await api.delete("\(base)/profile") }
     func profile(of userId: String) async throws -> FriendProfile { try await api.get("\(base)/users/\(userId)/profile") }
 
     func uploadPicture(jpeg: Data) async throws -> String? {

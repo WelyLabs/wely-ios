@@ -14,7 +14,7 @@ struct ProfileView: View {
     @State private var error: String?
 
     var body: some View {
-        NavigationStack(path: $path) {
+        WelyNavigationStack(path: $path) {
             List {
                 Section { header }
                 if let summary {
@@ -26,11 +26,13 @@ struct ProfileView: View {
                     if !summary.balances.isEmpty { balancesSection(summary.balances) }
                     if !summary.memories.isEmpty { eventsSection("Souvenirs", Array(summary.memories.prefix(5))) }
                 }
-                Section("Réglages") {
-                    NavigationLink { NotificationPreferencesView() } label: { Label("Notifications", systemImage: "bell") }
-                    LabeledContent("Version", value: Bundle.main.appVersion)
-                    LabeledContent("Serveur", value: app.session.config.gatewayURL.host() ?? "—")
-                    if app.isDemo { LabeledContent("Mode", value: "Démo") }
+                Section {
+                    NavigationLink(value: Route.preferences) {
+                        Label("Préférences", systemImage: "gearshape")
+                    }
+                    NavigationLink(value: Route.notifications) {
+                        Label("Notifications", systemImage: "bell")
+                    }
                 }
                 Section {
                     Button("Se déconnecter", role: .destructive) { Task { await app.session.signOut() } }
@@ -38,6 +40,10 @@ struct ProfileView: View {
             }
             .navigationTitle("Profil")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink(value: Route.preferences) { Image(systemName: "gearshape") }
+                        .accessibilityLabel("Préférences")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Modifier") { editing = true }.disabled(app.people.me == nil)
                 }
@@ -74,9 +80,9 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Changer la photo de profil")
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(me.displayName).font(.title3.bold())
+                    Text(me.displayName).font(.wely.title3.bold())
                     Text(me.handle).foregroundStyle(.secondary)
-                    if let email = me.email { Text(email).font(.footnote).foregroundStyle(.secondary) }
+                    if let email = me.email { Text(email).font(.wely.footnote).foregroundStyle(.secondary) }
                 }
             }
             .padding(.vertical, 6)
@@ -100,8 +106,8 @@ struct ProfileView: View {
 
     private func stat(_ value: Int, _ label: String) -> some View {
         VStack(spacing: 2) {
-            Text("\(value)").font(.title2.bold()).foregroundStyle(Theme.gradient)
-            Text(label).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text("\(value)").font(.wely.title2.bold()).foregroundStyle(Theme.gradient)
+            Text(label).font(.wely.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
     }
@@ -120,7 +126,7 @@ struct ProfileView: View {
             HStack {
                 Text("À propos")
                 Spacer()
-                Button("Modifier") { editingAbout = true }.font(.caption).textCase(nil)
+                Button("Modifier") { editingAbout = true }.font(.wely.caption).textCase(nil)
             }
         }
     }
@@ -130,8 +136,8 @@ struct ProfileView: View {
             ForEach(events) { event in
                 NavigationLink(value: Route.event(event)) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(event.title).font(.body.weight(.medium))
-                        Text(event.isOpenPoll ? "Date en sondage" : event.startDate.dayLabel()).font(.caption).foregroundStyle(.secondary)
+                        Text(event.title).font(.wely.body.weight(.medium))
+                        Text(event.isOpenPoll ? "Date en sondage" : event.startDate.dayLabel()).font(.wely.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -146,8 +152,8 @@ struct ProfileView: View {
                         NavigationLink(value: Route.person(companion.userId)) {
                             VStack(spacing: 4) {
                                 AvatarView(userId: companion.userId, size: 56)
-                                Text(app.people.person(companion.userId).name).font(.caption).lineLimit(1)
-                                Text("\(companion.outingsTogether) sorties").font(.caption2).foregroundStyle(.secondary)
+                                Text(app.people.person(companion.userId).name).font(.wely.caption).lineLimit(1)
+                                Text("\(companion.outingsTogether) sorties").font(.wely.caption2).foregroundStyle(.secondary)
                             }
                         }
                         .buttonStyle(.plain)
@@ -221,7 +227,7 @@ private struct EditProfileView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section {
                     TextField("Prénom", text: $update.firstName).textContentType(.givenName)
@@ -261,7 +267,7 @@ private struct EditAboutView: View {
     @State private var newInterest = ""
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section {
                     TextField("Une phrase sur vous", text: Binding(get: { about.bio ?? "" }, set: { about.bio = String($0.prefix(ProfileAbout.bioMax)) }),
@@ -299,39 +305,6 @@ private struct EditAboutView: View {
         guard !value.isEmpty, !about.interests.contains(value) else { return }
         about.interests.append(value)
         newInterest = ""
-    }
-}
-
-/// Which kinds of notification to receive.
-private struct NotificationPreferencesView: View {
-    @Environment(AppModel.self) private var app
-    @State private var preferences: NotificationPreferences?
-    @State private var error: String?
-
-    var body: some View {
-        Form {
-            if let binding = Binding($preferences) {
-                Section {
-                    Toggle("Appels", isOn: binding.calls)
-                    Toggle("Messages", isOn: binding.messages)
-                    Toggle("Événements", isOn: binding.events)
-                    Toggle("Amis", isOn: binding.friends)
-                } footer: {
-                    Text("Les notifications désactivées n'apparaissent plus dans le centre de notifications.")
-                }
-            } else {
-                ProgressView()
-            }
-        }
-        .navigationTitle("Notifications")
-        .task { preferences = try? await app.notificationService.preferences() }
-        .onChange(of: preferences) { old, new in
-            guard old != nil, let new else { return }
-            Task {
-                do { try await app.notificationService.savePreferences(new) } catch { self.error = error.localizedDescription }
-            }
-        }
-        .errorAlert($error)
     }
 }
 

@@ -15,5 +15,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Outfit, wely-web's face (OFL-1.1, google/fonts), as one variable font. -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Outfit.ttf</string>
+	</array>
 </dict>
 </plist>

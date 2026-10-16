@@ -67,9 +67,9 @@ struct LocationField: View {
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(suggestion.title).font(.subheadline)
+                            Text(suggestion.title).font(.wely.subheadline)
                             if !suggestion.subtitle.isEmpty {
-                                Text(suggestion.subtitle).font(.caption).foregroundStyle(.secondary)
+                                Text(suggestion.subtitle).font(.wely.caption).foregroundStyle(.secondary)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

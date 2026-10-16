@@ -10,7 +10,7 @@ struct ExploreView: View {
     enum Mode { case feed, map }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        WelyNavigationStack(path: $path) {
             Group {
                 switch mode {
                 case .feed: FeedList()
@@ -44,8 +44,7 @@ private struct FeedList: View {
     var body: some View {
         LoadableView(state: state, retry: load) { events in
             if events.isEmpty {
-                ContentUnavailableView("Rien de prévu pour l'instant", systemImage: "sparkles",
-                                       description: Text("Quand vos amis organisent des sorties, elles apparaissent ici."))
+                EmptyStateView(title: "Rien de prévu pour l'instant", systemImage: "sparkles", message: "Quand vos amis organisent des sorties, elles apparaissent ici.")
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
@@ -60,16 +59,16 @@ private struct FeedList: View {
                                 }
                             } header: {
                                 Text(day)
-                                    .font(.headline)
+                                    .font(.wely.headline)
                                     .padding(.vertical, 6)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color(.systemGroupedBackground))
+                                    .background(Theme.canvas)
                             }
                         }
                     }
                     .padding(.horizontal)
                 }
-                .background(Color(.systemGroupedBackground))
+                .background(Theme.canvas)
             }
         }
         .refreshable { await load() }
@@ -80,13 +79,13 @@ private struct FeedList: View {
     private func joinBadge(_ event: FeedEvent) -> some View {
         if event.organizerId == app.people.myId {
             Label("Vous organisez", systemImage: "star.fill")
-                .font(.caption.bold())
+                .font(.wely.caption.bold())
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(.regularMaterial, in: Capsule())
                 .padding(10)
         } else if joined.contains(event.id) {
             Label("Inscrit", systemImage: "checkmark")
-                .font(.caption.bold())
+                .font(.wely.caption.bold())
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(.green, in: Capsule())
@@ -98,7 +97,7 @@ private struct FeedList: View {
                 app.eventsChanged()
             } label: {
                 Label("Rejoindre", systemImage: "plus")
-                    .font(.caption.bold())
+                    .font(.wely.caption.bold())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .background(Theme.blue, in: Capsule())
@@ -169,8 +168,8 @@ private struct EventsMap: View {
                     HStack(spacing: 12) {
                         DateBadge(date: selected.startDate, tentative: selected.isOpenPoll)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(selected.title).font(.headline).lineLimit(1)
-                            Text(selected.location).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(selected.title).font(.wely.headline).lineLimit(1)
+                            Text(selected.location).font(.wely.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer()
                         Image(systemName: "chevron.right").foregroundStyle(.tertiary)

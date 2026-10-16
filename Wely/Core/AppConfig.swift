@@ -24,6 +24,13 @@ struct AppConfig: Sendable {
     }
     var realmURL: URL { keycloakURL.appending(path: "realms/\(realm)") }
     var authorizationEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/auth") }
+    var registrationEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/registrations") }
+    /// Keycloak's « forgotten password » form, which sends the reset link by e-mail.
+    var resetPasswordURL: URL {
+        var components = URLComponents(url: realmURL.appending(path: "login-actions/reset-credentials"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "client_id", value: clientId)]
+        return components.url!
+    }
     var tokenEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/token") }
     var logoutEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/logout") }
 

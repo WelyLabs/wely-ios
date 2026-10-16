@@ -30,7 +30,7 @@ struct EventDetailView: View {
             if let event {
                 content(event)
             } else if let loadError {
-                ContentUnavailableView("Événement introuvable", systemImage: "calendar.badge.exclamationmark", description: Text(loadError))
+                EmptyStateView(title: "Événement introuvable", systemImage: "calendar.badge.exclamationmark", message: loadError)
             } else {
                 ProgressView()
             }
@@ -78,7 +78,7 @@ struct EventDetailView: View {
                         if isOrganizer {
                             PhotosPicker(selection: $coverItem, matching: .images) {
                                 Label("Couverture", systemImage: "photo.badge.plus")
-                                    .font(.caption.bold())
+                                    .font(.wely.caption.bold())
                                     .padding(.horizontal, 10).padding(.vertical, 6)
                                     .background(.regularMaterial, in: Capsule())
                             }
@@ -91,7 +91,7 @@ struct EventDetailView: View {
 
                 if !conflicts.isEmpty, isParticipant {
                     Label("Chevauche \(conflicts.map(\.title).joined(separator: ", "))", systemImage: "exclamationmark.triangle.fill")
-                        .font(.subheadline)
+                        .font(.wely.subheadline)
                         .foregroundStyle(.orange)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -115,7 +115,7 @@ struct EventDetailView: View {
 
                 if !event.description.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Description").font(.headline)
+                        Text("Description").font(.wely.headline)
                         Text(event.description).foregroundStyle(.secondary)
                     }
                 }
@@ -126,12 +126,12 @@ struct EventDetailView: View {
 
     private func header(_ event: FeedEvent) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(event.title).font(.title2.bold())
+            Text(event.title).font(.wely.title2.bold())
             HStack(spacing: 8) {
                 PersonChip(userId: event.organizerId, prefix: "Organisé par")
                 if let visibility = event.visibility, visibility != .unknown {
                     Label(visibility.label, systemImage: visibility.systemImage)
-                        .font(.caption.weight(.medium))
+                        .font(.wely.caption.weight(.medium))
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Color(.tertiarySystemFill), in: Capsule())
                 }
@@ -139,7 +139,7 @@ struct EventDetailView: View {
             if let communityId = event.communityId {
                 NavigationLink(value: Route.community(communityId)) {
                     Label("Voir la communauté", systemImage: "person.3")
-                        .font(.subheadline.weight(.medium))
+                        .font(.wely.subheadline.weight(.medium))
                 }
             }
         }
@@ -149,7 +149,7 @@ struct EventDetailView: View {
     private func primaryAction(_ event: FeedEvent) -> some View {
         if event.communityId != nil, !isOrganizer, let myId {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Vous venez ?").font(.headline)
+                Text("Vous venez ?").font(.wely.headline)
                 Picker("Réponse", selection: Binding(
                     get: { event.responses?.answer(of: myId) },
                     set: { answer in if let answer { Task { await respond(answer) } } }
@@ -160,24 +160,24 @@ struct EventDetailView: View {
             }
         } else if isOrganizer {
             Label("Vous organisez", systemImage: "star.fill")
-                .font(.subheadline.bold())
+                .font(.wely.subheadline.bold())
                 .foregroundStyle(Theme.orange)
         } else if isParticipant {
             HStack {
                 Label("Inscrit", systemImage: "checkmark.circle.fill")
-                    .font(.headline)
+                    .font(.wely.headline)
                     .foregroundStyle(.green)
                 Spacer()
                 AsyncButton("Quitter", role: .destructive) { try await toggle() }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.welySecondary)
             }
         } else if !event.isPast {
             AsyncButton { try await toggle() } label: {
                 Label("Rejoindre", systemImage: "person.badge.plus")
-                    .font(.headline)
+                    .font(.wely.headline)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.welyPrimary)
         }
     }
 
@@ -212,7 +212,7 @@ struct EventDetailView: View {
                 } label: {
                     Label("Itinéraire", systemImage: "arrow.triangle.turn.up.right.diamond")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.welySecondary)
             }
         }
     }
@@ -223,20 +223,20 @@ struct EventDetailView: View {
             Button { showingParticipants = true } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(participants.count == 1 ? "1 participant" : "\(participants.count) participants").font(.headline)
+                        Text(participants.count == 1 ? "1 participant" : "\(participants.count) participants").font(.wely.headline)
                         if !participants.friendsGoingIds.isEmpty {
                             Text("dont \(participants.friendsGoingIds.map { app.people.name($0) }.prefix(3).joined(separator: ", "))")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.wely.caption).foregroundStyle(.secondary)
                         } else if participants.participantIds.isEmpty {
-                            Text("Rejoignez pour voir qui vient").font(.caption).foregroundStyle(.secondary)
+                            Text("Rejoignez pour voir qui vient").font(.wely.caption).foregroundStyle(.secondary)
                         }
                     }
                     Spacer()
                     AvatarStack(userIds: participants.participantIds.isEmpty ? participants.friendsGoingIds : participants.participantIds)
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                    Image(systemName: "chevron.right").font(.wely.caption).foregroundStyle(.tertiary)
                 }
                 .padding(12)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
         }
@@ -253,7 +253,7 @@ struct EventDetailView: View {
             }
         }
         .buttonStyle(.plain)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
     }
 
     @ToolbarContentBuilder
@@ -371,7 +371,7 @@ struct InfoRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 if let subtitle {
-                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+                    Text(subtitle).font(.wely.subheadline).foregroundStyle(.secondary)
                 }
             }
         }
@@ -386,15 +386,15 @@ struct LinkRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .font(.title3)
+                .font(.wely.title3)
                 .foregroundStyle(Theme.blue)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body.weight(.medium))
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text(title).font(.wely.body.weight(.medium))
+                Text(subtitle).font(.wely.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.wely.caption).foregroundStyle(.tertiary)
         }
         .padding(12)
         .contentShape(Rectangle())
@@ -415,21 +415,21 @@ private struct PollView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Sondage en cours", systemImage: "chart.bar.doc.horizontal")
-                .font(.headline)
+                .font(.wely.headline)
             Text("Indiquez vos disponibilités pour chaque créneau.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.wely.caption).foregroundStyle(.secondary)
             ForEach(poll.slots) { slot in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(slot.start.dayLabel()).font(.subheadline.weight(.semibold))
-                            Text(Date.timeRange(slot.start, slot.end)).font(.caption).foregroundStyle(.secondary)
+                            Text(slot.start.dayLabel()).font(.wely.subheadline.weight(.semibold))
+                            Text(Date.timeRange(slot.start, slot.end)).font(.wely.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Label("\(slot.yes.count)", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                         Label("\(slot.maybe.count)", systemImage: "questionmark.circle.fill").foregroundStyle(Theme.orange)
                     }
-                    .font(.subheadline)
+                    .font(.wely.subheadline)
                     Picker("Ma réponse", selection: Binding(
                         get: { answer(for: slot) },
                         set: { vote(slot: slot, answer: $0) }
@@ -445,13 +445,13 @@ private struct PollView: View {
                         AsyncButton {
                             onFixed(try await app.events.fixDate(event.id, slotId: slot.id))
                         } label: {
-                            Label("Fixer cette date", systemImage: "pin.fill").font(.caption.bold())
+                            Label("Fixer cette date", systemImage: "pin.fill").font(.wely.caption.bold())
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.welySecondary)
                     }
                 }
                 .padding(12)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
             }
         }
         .errorAlert($error)
@@ -484,7 +484,7 @@ private struct ParticipantsSheet: View {
     let organizerId: String
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             List {
                 if participants.participantIds.isEmpty {
                     Section {
@@ -527,7 +527,7 @@ private struct LeaveSheet: View {
     private var others: [String] { participants.participantIds.filter { $0 != event.organizerId } }
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 if others.isEmpty {
                     Section {
@@ -604,16 +604,16 @@ private struct EventEditSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section {
-                    TextField("Titre", text: $title).font(.headline)
+                    TextField("Titre", text: $title).font(.wely.headline)
                 }
 
                 Section {
                     if event.isOpenPoll {
                         Label("La date se décide par le sondage : fixez un créneau depuis l'événement.", systemImage: "chart.bar.doc.horizontal")
-                            .font(.subheadline)
+                            .font(.wely.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
                         DatePicker("Début", selection: $start, in: Date.now...)

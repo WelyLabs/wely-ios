@@ -45,11 +45,11 @@ struct EventFormView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section {
                     TextField("Titre (ex. Afterwork, Rando…)", text: $title)
-                        .font(.headline)
+                        .font(.wely.headline)
                 }
 
                 Section {
@@ -65,7 +65,7 @@ struct EventFormView: View {
                             VStack(alignment: .leading) {
                                 DatePicker("Créneau \(index + 1)", selection: $slots[index].start)
                                 DatePicker("Fin", selection: $slots[index].end, in: slots[index].start...)
-                                    .font(.caption)
+                                    .font(.wely.caption)
                             }
                         }
                         .onDelete { indexSet in if slots.count > 2 { slots.remove(atOffsets: indexSet) } }
@@ -194,7 +194,7 @@ private struct FreeSlotFinder: View {
     @State private var ranges: [FreeRange]?
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section("Avec qui") {
                     ForEach(friends) { friend in
@@ -230,7 +230,7 @@ private struct FreeSlotFinder: View {
                             } label: {
                                 VStack(alignment: .leading) {
                                     Text(range.start.dayLabel())
-                                    Text(Date.timeRange(range.start, range.end)).font(.caption).foregroundStyle(.secondary)
+                                    Text(Date.timeRange(range.start, range.end)).font(.wely.caption).foregroundStyle(.secondary)
                                 }
                             }
                         }

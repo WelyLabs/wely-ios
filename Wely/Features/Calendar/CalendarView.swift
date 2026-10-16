@@ -22,7 +22,7 @@ private struct CalendarScreen: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        WelyNavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 0) {
                     MonthHeader(model: model)
@@ -74,7 +74,7 @@ private struct MonthHeader: View {
     var body: some View {
         HStack {
             Text(model.displayedMonth.formatted(.dateTime.month(.wide).year().locale(.wely)).capitalized)
-                .font(.title2.bold())
+                .font(.wely.title2.bold())
                 .contentTransition(.numericText())
             Spacer()
             Button { withAnimation { model.showMonth(offset: -1) } } label: {
@@ -86,7 +86,7 @@ private struct MonthHeader: View {
             }
             .accessibilityLabel("Mois suivant")
         }
-        .font(.body.weight(.semibold))
+        .font(.wely.body.weight(.semibold))
         .padding(.horizontal)
         .padding(.top, 8)
     }
@@ -106,7 +106,7 @@ private struct MonthGridView: View {
                 let symbols = MonthGrid.weekdaySymbols(calendar: model.calendar)
                 ForEach(symbols.indices, id: \.self) { index in
                     Text(symbols[index].uppercased())
-                        .font(.caption2.weight(.semibold))
+                        .font(.wely.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                 }
@@ -137,7 +137,7 @@ private struct DayCell: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(day.date.formatted(.dateTime.day()))
-                .font(.callout.weight(isToday || isSelected ? .bold : .regular))
+                .font(.wely.callout.weight(isToday || isSelected ? .bold : .regular))
                 .foregroundStyle(numberColor)
                 .frame(width: 34, height: 34)
                 .background {
@@ -186,7 +186,7 @@ private struct DayAgendaView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(model.selectedDay.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(.wely)).capitalized)
-                .font(.headline)
+                .font(.wely.headline)
                 .padding(.horizontal)
                 .padding(.top, 12)
 
@@ -194,13 +194,9 @@ private struct DayAgendaView: View {
             case .loading where model.entries.isEmpty:
                 ProgressView().frame(maxWidth: .infinity).padding(.top, 24)
             case .failed(let message) where model.entries.isEmpty:
-                ContentUnavailableView {
-                    Label("Calendrier indisponible", systemImage: "wifi.exclamationmark")
-                } description: {
-                    Text(message)
-                } actions: {
+                EmptyStateView(title: "Calendrier indisponible", systemImage: "wifi.exclamationmark", message: message) {
                     Button("Réessayer") { Task { await model.load() } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.welyPrimary)
                 }
             default:
                 let entries = model.selectedEntries
@@ -238,31 +234,31 @@ struct EventRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(Date.timeRange(entry.start, entry.end))
-                    .font(.caption.monospacedDigit())
+                    .font(.wely.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                 Text(entry.tentative ? "? \(entry.title)" : entry.title)
-                    .font(.body.weight(.semibold))
+                    .font(.wely.body.weight(.semibold))
                     .italic(entry.tentative)
                     .lineLimit(2)
                 if !entry.event.location.isEmpty {
                     Label(entry.event.location, systemImage: "mappin.and.ellipse")
-                        .font(.caption)
+                        .font(.wely.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 if entry.tentative {
                     Text("Date proposée · sondage en cours")
-                        .font(.caption2.weight(.medium))
+                        .font(.wely.caption2.weight(.medium))
                         .foregroundStyle(Theme.orange)
                 }
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .font(.wely.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(12)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
         .overlay {
             if entry.tentative {
                 RoundedRectangle(cornerRadius: 12).strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))

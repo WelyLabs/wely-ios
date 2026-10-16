@@ -8,8 +8,10 @@ signs in through the same Keycloak realm.
 1. Start the local stack: `~/Documents/wely-app/wely up` (gateway :8081, Keycloak :8080).
 2. Open `Wely.xcodeproj` in Xcode, pick an iPhone simulator, press ⌘R.
 
-Sign-in uses the authorization code flow with PKCE on the public client `wely-client`; Keycloak
-must list `wely://oauth-callback` among its redirect URIs (done in
+Sign-in happens on the app's own screen: the username and password go to Keycloak's token
+endpoint (direct access grant, enabled on the public client `wely-client`). Signing up and
+resetting a password still open Keycloak's pages, with the authorization code flow and PKCE;
+Keycloak must list `wely://oauth-callback` among its redirect URIs (done in
 `wely-gitops-infra/overlays/local/keycloak/wely-realm.json`).
 
 **Demo mode** — enable the `-WelyDemo` argument in *Product › Scheme › Edit Scheme › Run ›
@@ -34,13 +36,14 @@ which the simulator shares with the Mac.
 | Folder | What |
 | --- | --- |
 | `Wely/App` | entry point, `AppModel` (services, people, notifications, chat socket), tabs, routes |
-| `Wely/Core/Auth` | Keycloak sign-in (PKCE), tokens in the Keychain, refresh |
+| `Wely/Core/Auth` | Keycloak sign-in (password grant; PKCE for sign-up), tokens in the Keychain, refresh |
+| `Wely/DesignSystem` | wely-web's look: colours, Outfit, buttons, cards, the tab bar's pieces |
 | `Wely/Core/API` | gateway client (JSON, multipart, business error codes), lenient decoding |
 | `Wely/Core/Realtime` | RSocket over WebSocket (chat), server-sent events (notifications, polls) |
 | `Wely/Core/Backend` | `DemoTransport`, the in-memory gateway of the demo mode |
 | `Wely/Models` | the wire types, as wely-web's models |
 | `Wely/Services` | one struct per backend service, same routes as wely-web |
-| `Wely/Features` | calendar, explore (feed + map), events (detail, form, poll, expenses), social (friends, people), communities, chat, notifications, profile |
+| `Wely/Features` | calendar, explore (feed + map), events (detail, form, poll, expenses), social (friends, people), communities, chat, notifications, profile, preferences |
 | `WelyTests` | Swift Testing unit tests |
 
 Not ported yet: calls (WebRTC) and push notifications (APNs, needs a backend change).
