@@ -8,8 +8,7 @@ struct NotificationsView: View {
         let center = app.notifications
         List {
             if center.items.isEmpty {
-                ContentUnavailableView("Aucune notification", systemImage: "bell.slash",
-                                       description: Text("Les demandes d'amis, messages et changements de date arrivent ici."))
+                EmptyStateView(title: "Aucune notification", systemImage: "bell.slash", message: "Les demandes d'amis, messages et changements de date arrivent ici.")
                     .listRowBackground(Color.clear)
             }
             ForEach(groups(center.items), id: \.0) { day, items in
@@ -71,11 +70,11 @@ private struct NotificationRow: View {
                     .offset(x: 4, y: 4)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(notification.title).font(.subheadline.weight(notification.isRead ? .regular : .semibold))
+                Text(notification.title).font(.wely.subheadline.weight(notification.isRead ? .regular : .semibold))
                 if !notification.body.isEmpty {
-                    Text(notification.body).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    Text(notification.body).font(.wely.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
-                Text(notification.createdAt.relativeShort()).font(.caption2).foregroundStyle(.secondary)
+                Text(notification.createdAt.relativeShort()).font(.wely.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             if !notification.isRead {

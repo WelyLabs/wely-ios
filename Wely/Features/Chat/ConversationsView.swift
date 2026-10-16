@@ -10,21 +10,20 @@ struct ConversationsView: View {
     @State private var startingChat = false
 
     var body: some View {
-        NavigationStack(path: $path) {
+        WelyNavigationStack(path: $path) {
             List(conversations) { conversation in
                 NavigationLink(value: Route.conversation(conversation.id)) {
                     ConversationRow(conversation: conversation)
                 }
             }
-            .listStyle(.plain)
+            .listStyle(.insetGrouped)
             .overlay {
                 if !loaded {
                     ProgressView()
                 } else if let loadError, conversations.isEmpty {
-                    ContentUnavailableView("Messagerie indisponible", systemImage: "bubble.left.and.exclamationmark.bubble.right", description: Text(loadError))
+                    EmptyStateView(title: "Messagerie indisponible", systemImage: "bubble.left.and.exclamationmark.bubble.right", message: loadError)
                 } else if conversations.isEmpty {
-                    ContentUnavailableView("Aucune conversation", systemImage: "bubble.left.and.bubble.right",
-                                           description: Text("Écrivez à un ami depuis son profil, ou discutez dans le fil d'un événement."))
+                    EmptyStateView(title: "Aucune conversation", systemImage: "bubble.left.and.bubble.right", message: "Écrivez à un ami depuis son profil, ou discutez dans le fil d'un événement.")
                 }
             }
             .navigationTitle("Messages")
@@ -90,13 +89,13 @@ private struct ConversationRow: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
-                    Text(title).font(.body.weight(.semibold)).lineLimit(1)
+                    Text(title).font(.wely.body.weight(.semibold)).lineLimit(1)
                     Spacer()
                     if let date = conversation.updatedAt {
-                        Text(date.relativeShort()).font(.caption).foregroundStyle(.secondary)
+                        Text(date.relativeShort()).font(.wely.caption).foregroundStyle(.secondary)
                     }
                 }
-                Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                Text(preview).font(.wely.subheadline).foregroundStyle(.secondary).lineLimit(2)
             }
         }
         .padding(.vertical, 4)
@@ -125,7 +124,7 @@ struct FriendPicker: View {
     @State private var query = ""
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             List(friends.filter { query.isEmpty || $0.userName.localizedCaseInsensitiveContains(query) }) { friend in
                 Button {
                     dismiss()

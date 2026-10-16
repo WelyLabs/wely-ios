@@ -46,6 +46,7 @@ struct DemoStore {
     var conversations: [Conversation] = []
     var notifications: [AppNotification] = []
     var expenses: [String: [Expense]] = [:]
+    var preferences = UserPreferences(theme: .system)
     var about = ProfileAbout(bio: "Toujours partant pour une sortie 🚲", interests: ["Escalade", "Jeux de société", "Cinéma"])
 
     init() {
@@ -128,6 +129,13 @@ struct DemoStore {
                 people[Self.me] = (update.userName, update.firstName, update.lastName, people[Self.me]!.tag)
             }
             return ok(profile(Self.me))
+        case ("GET", "user-service", ["profile", "preferences"]): return ok(preferences)
+        case ("PUT", "user-service", ["profile", "preferences"]):
+            if let update = decode(UserPreferences.self, body) { preferences = update }
+            return ok(preferences)
+        // The demo account is protected, as on the web.
+        case ("GET", "user-service", ["profile", "deletion"]): return ok(DeletionEligibility(allowed: false))
+        case ("DELETE", "user-service", ["profile"]): return (403, json(["code": "USR-BUS-011"]))
         case ("GET", "user-service", ["profile", "about"]): return ok(about)
         case ("PUT", "user-service", ["profile", "about"]):
             if let value = decode(ProfileAbout.self, body) { about = value }

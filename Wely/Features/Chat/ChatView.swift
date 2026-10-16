@@ -33,14 +33,14 @@ struct ChatView: View {
             if conversation != nil {
                 messageList
             } else if let loadError {
-                ContentUnavailableView("Conversation indisponible", systemImage: "bubble.left.and.exclamationmark.bubble.right", description: Text(loadError))
+                EmptyStateView(title: "Conversation indisponible", systemImage: "bubble.left.and.exclamationmark.bubble.right", message: loadError)
             } else {
                 ProgressView()
             }
         }
         .safeAreaInset(edge: .bottom) { if conversation != nil { composer } }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
+        .hidesWelyTabBar()
         .toolbar {
             ToolbarItem(placement: .principal) { titleView }
         }
@@ -63,23 +63,23 @@ struct ChatView: View {
         VStack(spacing: 0) {
             switch target {
             case .event(_, let title):
-                Text(title).font(.headline).lineLimit(1)
-                Text("Fil du groupe").font(.caption2).foregroundStyle(.secondary)
+                Text(title).font(.wely.headline).lineLimit(1)
+                Text("Fil du groupe").font(.wely.caption2).foregroundStyle(.secondary)
             default:
                 if let otherId {
                     NavigationLink(value: Route.person(otherId)) {
                         VStack(spacing: 0) {
-                            Text(app.people.person(otherId).name).font(.headline)
+                            Text(app.people.person(otherId).name).font(.wely.headline)
                             if let presence {
                                 Text(presence.online ? "En ligne" : presence.lastSeenAt.map { "Vu \($0.relativeShort().lowercased())" } ?? "")
-                                    .font(.caption2)
+                                    .font(.wely.caption2)
                                     .foregroundStyle(presence.online ? .green : .secondary)
                             }
                         }
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Text(conversation?.title ?? "Groupe").font(.headline).lineLimit(1)
+                    Text(conversation?.title ?? "Groupe").font(.wely.headline).lineLimit(1)
                 }
             }
         }
@@ -91,19 +91,19 @@ struct ChatView: View {
                 LazyVStack(spacing: 6) {
                     if oldestBucket > 0 {
                         AsyncButton("Messages précédents") { try await loadOlder() }
-                            .font(.caption)
+                            .font(.wely.caption)
                             .padding(.vertical, 8)
                     }
                     if messages.isEmpty {
                         Text("Personne n'a encore écrit. Lancez la discussion !")
-                            .font(.subheadline)
+                            .font(.wely.subheadline)
                             .foregroundStyle(.secondary)
                             .padding(.top, 40)
                     }
                     ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                         if index == 0 || !Calendar.wely.isDate(messages[index - 1].timestamp, inSameDayAs: message.timestamp) {
                             Text(message.timestamp.dayLabel())
-                                .font(.caption2.weight(.semibold))
+                                .font(.wely.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 10)
                         }
@@ -133,7 +133,7 @@ struct ChatView: View {
         HStack(alignment: .bottom, spacing: 8) {
             PhotosPicker(selection: $photoItem, matching: .images) {
                 Image(systemName: "photo.on.rectangle")
-                    .font(.title3)
+                    .font(.wely.title3)
                     .frame(width: 36, height: 36)
             }
             .accessibilityLabel("Envoyer une photo")
@@ -259,7 +259,7 @@ private struct MessageBubble: View {
     var body: some View {
         if message.isSystem {
             Text(message.content)
-                .font(.caption)
+                .font(.wely.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.vertical, 4)
@@ -270,7 +270,7 @@ private struct MessageBubble: View {
                 if !mine, showAuthor { AvatarView(userId: message.senderId, size: 26) } else if !mine { Color.clear.frame(width: 26) }
                 VStack(alignment: mine ? .trailing : .leading, spacing: 2) {
                     if showAuthor {
-                        Text(app.people.person(message.senderId).name).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(app.people.person(message.senderId).name).font(.wely.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     }
                     if let photo = message.photo {
                         photoView(photo)
@@ -287,16 +287,16 @@ private struct MessageBubble: View {
                     HStack(spacing: 4) {
                         if message.failed {
                             Button(action: onRetry) {
-                                Label("Non envoyé · Réessayer", systemImage: "exclamationmark.circle").font(.caption2)
+                                Label("Non envoyé · Réessayer", systemImage: "exclamationmark.circle").font(.wely.caption2)
                             }
                             .foregroundStyle(.red)
                         } else {
                             Text(message.pending ? "Envoi…" : message.timestamp.formatted(.dateTime.hour().minute().locale(.wely)))
-                                .font(.caption2)
+                                .font(.wely.caption2)
                                 .foregroundStyle(.secondary)
                         }
                         if let reactions = message.reactions, !reactions.isEmpty {
-                            Text(reactions.map { "\($0.key) \($0.value)" }.joined(separator: " ")).font(.caption2)
+                            Text(reactions.map { "\($0.key) \($0.value)" }.joined(separator: " ")).font(.wely.caption2)
                         }
                     }
                 }
@@ -308,7 +308,7 @@ private struct MessageBubble: View {
     @ViewBuilder
     private func photoView(_ photo: MessagePhoto) -> some View {
         if photo.removed {
-            Label("Photo retirée", systemImage: "photo").font(.caption).foregroundStyle(.secondary)
+            Label("Photo retirée", systemImage: "photo").font(.wely.caption).foregroundStyle(.secondary)
                 .padding(10).background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
         } else if let raw = photo.url, let url = AppConfig.current.imageURL(raw) {
             let ratio = photo.height > 0 ? CGFloat(photo.width) / CGFloat(photo.height) : 1
@@ -331,7 +331,7 @@ private struct PhotoViewer: View {
     @State private var scale: CGFloat = 1
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             AsyncImage(url: url) { image in
                 image.resizable().scaledToFit().scaleEffect(scale)
                     .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }.onEnded { _ in withAnimation { scale = 1 } })

@@ -15,6 +15,9 @@ nonisolated enum ErrorMessages {
         case "SCL-BUS-018": "Cette personne n'est pas membre de la communauté."
         case "SCL-BUS-019": "Réservé aux membres : rejoignez la communauté pour voir son contenu."
         case "EVT-BUS-024": "Seuls les membres de la communauté peuvent voir et publier ses événements."
+        case "USR-BUS-010": "Pour supprimer votre compte, confirmez d'abord votre mot de passe."
+        case "USR-BUS-011": "Le compte de démonstration ne peut pas être supprimé."
+        case "USR-BUS-014": "La suppression du compte est indisponible pour le moment."
         case "CHT-BUS-007": "Cette photo ne peut plus être retirée."
         default: nil
         }

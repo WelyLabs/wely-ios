@@ -12,6 +12,7 @@ enum Route: Hashable {
     case expenses(FeedEvent)
     case invitation(String)
     case notifications
+    case preferences
 
     init(_ destination: AppDestination) {
         switch destination {
@@ -20,6 +21,7 @@ enum Route: Hashable {
         case .person(let id): self = .person(id)
         case .community(let id): self = .community(id)
         case .invitation(let token): self = .invitation(token)
+        case .preferences: self = .preferences
         }
     }
 }
@@ -28,18 +30,22 @@ extension View {
     /// Registers every `Route` on a navigation stack.
     func withRoutes() -> some View {
         navigationDestination(for: Route.self) { route in
-            switch route {
-            case .event(let event): EventDetailView(eventId: event.id, initial: event)
-            case .eventId(let id): EventDetailView(eventId: id, initial: nil)
-            case .person(let id): PersonView(userId: id)
-            case .community(let id): CommunityDetailView(communityId: id)
-            case .conversation(let id): ChatView(target: .conversation(id))
-            case .directChat(let friendId): ChatView(target: .friend(friendId))
-            case .eventChat(let eventId, let title): ChatView(target: .event(eventId, title: title))
-            case .expenses(let event): ExpensesView(event: event)
-            case .invitation(let token): InvitationView(token: token)
-            case .notifications: NotificationsView()
+            Group {
+                switch route {
+                case .event(let event): EventDetailView(eventId: event.id, initial: event)
+                case .eventId(let id): EventDetailView(eventId: id, initial: nil)
+                case .person(let id): PersonView(userId: id)
+                case .community(let id): CommunityDetailView(communityId: id)
+                case .conversation(let id): ChatView(target: .conversation(id))
+                case .directChat(let friendId): ChatView(target: .friend(friendId))
+                case .eventChat(let eventId, let title): ChatView(target: .event(eventId, title: title))
+                case .expenses(let event): ExpensesView(event: event)
+                case .invitation(let token): InvitationView(token: token)
+                case .notifications: NotificationsView()
+                case .preferences: PreferencesView()
+                }
             }
+            .welyScreen()
         }
     }
 

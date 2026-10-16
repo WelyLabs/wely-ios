@@ -67,10 +67,10 @@ struct CommunityRow: View {
             CommunityBadge(community: community, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text(community.name).font(.body.weight(.semibold)).lineLimit(1)
-                    if community.visibility == .private { Image(systemName: "lock.fill").font(.caption2).foregroundStyle(.secondary) }
+                    Text(community.name).font(.wely.body.weight(.semibold)).lineLimit(1)
+                    if community.visibility == .private { Image(systemName: "lock.fill").font(.wely.caption2).foregroundStyle(.secondary) }
                 }
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(subtitle).font(.wely.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
     }
@@ -132,7 +132,7 @@ struct CommunityDetailView: View {
                     }
                 }
             } else if let loadError {
-                ContentUnavailableView("Communauté introuvable", systemImage: "person.3", description: Text(loadError))
+                EmptyStateView(title: "Communauté introuvable", systemImage: "person.3", message: loadError)
             } else {
                 ProgressView()
             }
@@ -170,10 +170,10 @@ struct CommunityDetailView: View {
             HStack(spacing: 14) {
                 CommunityBadge(community: community, size: 64)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(community.name).font(.title3.bold())
+                    Text(community.name).font(.wely.title3.bold())
                     Label("\(community.visibility.label) · \(community.memberCount) membre\(community.memberCount > 1 ? "s" : "")",
                           systemImage: community.visibility.systemImage)
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.wely.caption).foregroundStyle(.secondary)
                 }
             }
             if let description = community.description, !description.isEmpty { Text(description) }
@@ -184,7 +184,7 @@ struct CommunityDetailView: View {
                 HStack {
                     AvatarStack(userIds: community.friendMembers.map(\.userId), size: 24)
                     Text("\(community.friendMembers.map(\.userName).prefix(2).joined(separator: ", ")) en font partie")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.wely.caption).foregroundStyle(.secondary)
                 }
             }
             if !community.isMember {
@@ -194,7 +194,7 @@ struct CommunityDetailView: View {
                 } label: {
                     Text(community.visibility == .private ? "Sur invitation uniquement" : "Rejoindre").frame(maxWidth: .infinity, minHeight: 36)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.welyPrimary)
                 .disabled(community.visibility == .private)
             }
         }
@@ -207,11 +207,11 @@ struct CommunityDetailView: View {
             ForEach(events) { event in
                 NavigationLink(value: Route.event(event)) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(event.title).font(.body.weight(.medium))
+                        Text(event.title).font(.wely.body.weight(.medium))
                         Text(event.isOpenPoll ? "Date en sondage" : Date.eventWhen(event.startDate, event.endDate))
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.wely.caption).foregroundStyle(.secondary)
                         if let responses = event.responses {
-                            Text("\(responses.yes.count) oui · \(responses.maybe.count) peut-être").font(.caption2).foregroundStyle(.secondary)
+                            Text("\(responses.yes.count) oui · \(responses.maybe.count) peut-être").font(.wely.caption2).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -253,7 +253,7 @@ struct CommunityDetailView: View {
                         try await app.social.revokeInvitation(communityId, token: invitation.token)
                         await load()
                     }
-                    .font(.caption)
+                    .font(.wely.caption)
                 }
             }
         }
@@ -333,7 +333,7 @@ struct CommunityFormView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section {
                     TextField("Nom", text: $name)
@@ -404,22 +404,22 @@ private struct InviteFriendsSheet: View {
     @State private var invited: Set<String> = []
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             List {
                 let candidates = friends.filter { !members.contains($0.userId) }
                 if candidates.isEmpty { Text("Tous vos amis sont déjà membres.").foregroundStyle(.secondary) }
                 ForEach(candidates) { friend in
                     PersonRow(userId: friend.userId) {
                         if invited.contains(friend.userId) {
-                            Label("Invité", systemImage: "checkmark").font(.caption).foregroundStyle(.green)
+                            Label("Invité", systemImage: "checkmark").font(.wely.caption).foregroundStyle(.green)
                         } else {
                             AsyncButton("Inviter") {
                                 _ = try await app.social.invite(communityId, friendId: friend.userId)
                                 invited.insert(friend.userId)
                                 onInvited()
                             }
-                            .buttonStyle(.bordered)
-                            .font(.caption)
+                            .buttonStyle(.welySecondary)
+                            .font(.wely.caption)
                         }
                     }
                 }
@@ -442,7 +442,7 @@ private struct InvitationLinkSheet: View {
     @State private var link = ""
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 TextField("Lien d'invitation", text: $link)
                     .textInputAutocapitalization(.never)
@@ -474,26 +474,21 @@ struct InvitationView: View {
     var body: some View {
         Group {
             if let joined {
-                ContentUnavailableView {
-                    Label("Bienvenue dans \(joined.name) !", systemImage: "party.popper")
-                } actions: {
-                    NavigationLink("Voir la communauté", value: Route.community(joined.communityId)).buttonStyle(.borderedProminent)
+                EmptyStateView(title: "Bienvenue dans \(joined.name) !", systemImage: "party.popper") {
+                    NavigationLink("Voir la communauté", value: Route.community(joined.communityId)).buttonStyle(.welyPrimary)
                 }
             } else if let invitation {
-                ContentUnavailableView {
-                    Label(invitation.communityName, systemImage: "envelope.open")
-                } description: {
-                    Text(invitation.expired
-                         ? "Cette invitation a expiré : demandez-en une nouvelle à un administrateur."
-                         : "\(invitation.inviterName ?? "Un membre") vous invite à rejoindre cette communauté.")
-                } actions: {
+                EmptyStateView(title: invitation.communityName, systemImage: "envelope.open",
+                               message: invitation.expired
+                                   ? "Cette invitation a expiré : demandez-en une nouvelle à un administrateur."
+                                   : "\(invitation.inviterName ?? "Un membre") vous invite à rejoindre cette communauté.") {
                     if !invitation.expired {
                         AsyncButton("Rejoindre") { joined = try await app.social.acceptInvitation(token: token) }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.welyPrimary)
                     }
                 }
             } else if let loadError {
-                ContentUnavailableView("Invitation invalide", systemImage: "envelope.badge.shield.half.filled", description: Text(loadError))
+                EmptyStateView(title: "Invitation invalide", systemImage: "envelope.badge.shield.half.filled", message: loadError)
             } else {
                 ProgressView()
             }

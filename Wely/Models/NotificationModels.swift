@@ -56,6 +56,7 @@ enum AppDestination: Hashable, Sendable {
     case person(String)
     case community(String)
     case invitation(String)
+    case preferences
 
     /// Reads wely-web's paths, so notifications and shared links land on the same screen.
     init?(webPath: String) {
@@ -67,6 +68,7 @@ enum AppDestination: Hashable, Sendable {
         case ("friends", 2): self = .person(parts[1])
         case ("communities", 3) where parts[1] == "invite": self = .invitation(parts[2])
         case ("communities", 2): self = .community(parts[1])
+        case ("preferences", 1): self = .preferences
         default: return nil
         }
     }

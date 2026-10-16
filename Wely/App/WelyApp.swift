@@ -5,6 +5,7 @@ struct WelyApp: App {
     @State private var app: AppModel
 
     init() {
+        WelyAppearance.apply()
         #if DEBUG
         // `-WelyDemo`: signed in against a pretend gateway, no backend needed.
         if ProcessInfo.processInfo.arguments.contains("-WelyDemo") {
@@ -44,7 +45,9 @@ struct WelyApp: App {
             RootView()
                 .environment(app)
                 .environment(app.session)
-                .tint(Theme.blue)
+                .tint(Theme.primary)
+                .font(.wely.body)
+                .preferredColorScheme(app.theme.colorScheme)
                 .onOpenURL { url in
                     // wely://event/<id>, or a shared web link to the same path.
                     if let destination = AppDestination(webPath: url.host().map { "/\($0)\(url.path())" } ?? url.path()) {

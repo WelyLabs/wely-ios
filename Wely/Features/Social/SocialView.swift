@@ -8,7 +8,7 @@ struct SocialView: View {
     enum Section { case friends, communities }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        WelyNavigationStack(path: $path) {
             Group {
                 switch section {
                 case .friends: FriendsList()
@@ -72,12 +72,12 @@ private struct FriendsList: View {
                                         AsyncButton { try await app.social.reject(user.userId); await load() } label: {
                                             Image(systemName: "xmark")
                                         }
-                                        .buttonStyle(.bordered)
+                                        .buttonStyle(.welySecondary)
                                         .accessibilityLabel("Refuser")
                                         AsyncButton { try await app.social.accept(user.userId); await load() } label: {
                                             Image(systemName: "checkmark")
                                         }
-                                        .buttonStyle(.borderedProminent)
+                                        .buttonStyle(.welyPrimary)
                                         .accessibilityLabel("Accepter")
                                     }
                                 }
@@ -109,8 +109,8 @@ private struct FriendsList: View {
                         ForEach(outgoing) { user in
                             PersonRow(userId: user.userId, subtitle: "en attente") {
                                 AsyncButton("Annuler") { try await app.social.remove(user.userId); await load() }
-                                    .buttonStyle(.bordered)
-                                    .font(.caption)
+                                    .buttonStyle(.welySecondary)
+                                    .font(.wely.caption)
                             }
                         }
                     }
@@ -135,12 +135,12 @@ private struct FriendsList: View {
     private func relationButton(_ user: UserWithStatus) -> some View {
         switch user.relationStatus {
         case .friends:
-            Text("Ami").font(.caption).foregroundStyle(.secondary)
+            Text("Ami").font(.wely.caption).foregroundStyle(.secondary)
         case _ where user.relationStatus.isOutgoing:
-            Text("Envoyée").font(.caption).foregroundStyle(.secondary)
+            Text("Envoyée").font(.wely.caption).foregroundStyle(.secondary)
         case _ where user.relationStatus.isIncoming:
             AsyncButton("Accepter") { try await app.social.accept(user.userId); await load() }
-                .buttonStyle(.borderedProminent).font(.caption)
+                .buttonStyle(.welyPrimary).font(.wely.caption)
         case .me:
             EmptyView()
         default:
@@ -150,7 +150,7 @@ private struct FriendsList: View {
             } label: {
                 Image(systemName: "person.badge.plus")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.welySecondary)
             .accessibilityLabel("Ajouter \(user.userName)")
         }
     }
@@ -185,7 +185,7 @@ private struct AddFriendSheet: View {
     @State private var sent: String?
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             Form {
                 Section {
                     TextField("pseudo#1234", text: $tag)
@@ -208,7 +208,7 @@ private struct AddFriendSheet: View {
                 if let me = app.people.me {
                     Section("Votre tag") {
                         HStack {
-                            Text(me.tag).font(.body.monospaced())
+                            Text(me.tag).font(.wely.body.monospaced())
                             Spacer()
                             ShareLink(item: "Ajoute-moi sur Wely : \(me.tag)") { Image(systemName: "square.and.arrow.up") }
                         }

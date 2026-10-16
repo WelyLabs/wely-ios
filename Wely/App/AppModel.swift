@@ -24,6 +24,12 @@ final class AppModel {
     /// A screen to open from outside the tab (a notification, a shared link).
     var pendingDestination: AppDestination?
     var selectedTab: AppTab = .calendar
+    /// How many open screens want the tab bar out of the way (a conversation, with its composer).
+    var tabBarHiders = 0
+    /// The theme kept with the account; this phone's last choice until the account answers.
+    var theme = ThemePreference.stored {
+        didSet { ThemePreference.stored = theme }
+    }
 
     init(session: AuthSession, http: HTTPTransport = URLSession.shared, isDemo: Bool = false) {
         self.session = session
@@ -42,6 +48,7 @@ final class AppModel {
 
     /// What signing in starts: who I am, who I know, the notification stream.
     func start() async {
+        if let preferences = try? await users.preferences() { theme = preferences.theme }
         await people.loadMe()
         await people.loadDirectory()
         notifications.start()
@@ -55,10 +62,24 @@ final class AppModel {
 
     func eventsChanged() { eventsVersion += 1 }
 
+    /// Applies the theme at once, then keeps it with the account; a refused save puts the
+    /// previous one back and throws for the screen to say so.
+    func chooseTheme(_ choice: ThemePreference) async throws {
+        let previous = theme
+        theme = choice
+        do {
+            theme = try await users.savePreferences(UserPreferences(theme: choice)).theme
+        } catch {
+            theme = previous
+            throw error
+        }
+    }
+
     func open(_ destination: AppDestination) {
         switch destination {
         case .conversation: selectedTab = .messages
         case .person, .community, .invitation: selectedTab = .social
+        case .preferences: selectedTab = .profile
         case .event: break
         }
         pendingDestination = destination
@@ -72,7 +93,7 @@ final class AppModel {
     #endif
 }
 
-enum AppTab: Hashable {
+enum AppTab: Hashable, CaseIterable {
     case calendar, feed, messages, social, profile
 }
 

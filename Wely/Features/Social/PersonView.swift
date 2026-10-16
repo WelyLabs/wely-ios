@@ -29,12 +29,12 @@ struct PersonView: View {
                 }
                 .padding()
             } else if let loadError {
-                ContentUnavailableView("Profil introuvable", systemImage: "person.crop.circle.badge.questionmark", description: Text(loadError))
+                EmptyStateView(title: "Profil introuvable", systemImage: "person.crop.circle.badge.questionmark", message: loadError)
             } else {
                 ProgressView().padding(.top, 60)
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.canvas)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isFriend {
@@ -61,11 +61,11 @@ struct PersonView: View {
     private func header(_ person: SocialPerson) -> some View {
         VStack(spacing: 8) {
             AvatarView(userId: userId, size: 96)
-            Text(profile?.displayName ?? person.userName).font(.title2.bold())
+            Text(profile?.displayName ?? person.userName).font(.wely.title2.bold())
             Text(person.person.handle).foregroundStyle(.secondary)
             if let since = person.since, isFriend, let date = WireDate.parse(since) ?? WireDate.parse(since + "T00:00:00") {
                 Text("Amis depuis \(date.formatted(.dateTime.month(.wide).year().locale(.wely)))")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.wely.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -78,23 +78,23 @@ struct PersonView: View {
                 NavigationLink(value: Route.directChat(friendId: userId)) {
                     Label("Message", systemImage: "bubble.left.fill").frame(maxWidth: .infinity, minHeight: 36)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.welyPrimary)
                 Button { showingCalendar = true } label: {
                     Label("Agenda", systemImage: "calendar").frame(maxWidth: .infinity, minHeight: 36)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.welySecondary)
             case let status where status.isIncoming:
                 AsyncButton { try await app.social.accept(userId); await load() } label: {
                     Label("Accepter", systemImage: "checkmark").frame(maxWidth: .infinity, minHeight: 36)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.welyPrimary)
                 AsyncButton(role: .destructive) { try await app.social.reject(userId); await load() } label: {
                     Text("Refuser").frame(maxWidth: .infinity, minHeight: 36)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.welySecondary)
             case let status where status.isOutgoing:
                 Label("Demande envoyée", systemImage: "clock").foregroundStyle(.secondary)
-                AsyncButton("Annuler") { try await app.social.remove(userId); await load() }.buttonStyle(.bordered)
+                AsyncButton("Annuler") { try await app.social.remove(userId); await load() }.buttonStyle(.welySecondary)
             case .me:
                 EmptyView()
             default:
@@ -104,7 +104,7 @@ struct PersonView: View {
                 } label: {
                     Label("Ajouter en ami", systemImage: "person.badge.plus").frame(maxWidth: .infinity, minHeight: 36)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.welyPrimary)
             }
         }
     }
@@ -115,7 +115,7 @@ struct PersonView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Label(friendship.closeness.label, systemImage: "heart.circle.fill")
-                        .font(.headline)
+                        .font(.wely.headline)
                         .foregroundStyle(Theme.orange)
                     Spacer()
                     Menu {
@@ -123,22 +123,22 @@ struct PersonView: View {
                             Button(option.label) { Task { await change(to: option.closeness) } }
                         }
                     } label: {
-                        Text("Changer").font(.subheadline.weight(.medium))
+                        Text("Changer").font(.wely.subheadline.weight(.medium))
                     }
                 }
-                Text("\(person.userName) \(friendship.closeness.hint).").font(.caption).foregroundStyle(.secondary)
+                Text("\(person.userName) \(friendship.closeness.hint).").font(.wely.caption).foregroundStyle(.secondary)
                 if let proposal = friendship.proposal {
                     if friendship.proposedByFriend {
                         Text("\(person.userName) propose de passer à « \(proposal.label) » : \(proposal.hint).")
-                            .font(.subheadline)
+                            .font(.wely.subheadline)
                         HStack {
                             AsyncButton("Accepter") { _ = try await app.social.acceptCloseness(userId); await load() }
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(.welyPrimary)
                             AsyncButton("Refuser") { _ = try await app.social.declineCloseness(userId); await load() }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.welySecondary)
                         }
                     } else {
-                        Text("Vous avez proposé « \(proposal.label) », en attente.").font(.caption).foregroundStyle(.secondary)
+                        Text("Vous avez proposé « \(proposal.label) », en attente.").font(.wely.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -162,11 +162,11 @@ struct PersonView: View {
         Card {
             HStack {
                 VStack(alignment: .leading) {
-                    Text("\(overview.outingsTogether)").font(.title.bold())
-                    Text(overview.outingsTogether == 1 ? "sortie ensemble" : "sorties ensemble").font(.caption).foregroundStyle(.secondary)
+                    Text("\(overview.outingsTogether)").font(.wely.title.bold())
+                    Text(overview.outingsTogether == 1 ? "sortie ensemble" : "sorties ensemble").font(.wely.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "figure.2").font(.largeTitle).foregroundStyle(Theme.gradient)
+                Image(systemName: "figure.2").font(.wely.largeTitle).foregroundStyle(Theme.gradient)
             }
         }
         eventList("Bientôt ensemble", overview.upcomingTogether)
@@ -178,7 +178,7 @@ struct PersonView: View {
     private func eventList(_ title: String, _ events: [FeedEvent]) -> some View {
         if !events.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text(title).font(.headline)
+                Text(title).font(.wely.headline)
                 ForEach(events) { event in
                     NavigationLink(value: Route.event(event)) { CompactEventRow(event: event) }
                         .buttonStyle(.plain)
@@ -190,14 +190,14 @@ struct PersonView: View {
 
     private var mutualFriends: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Amis en commun (\(mutual.count))").font(.headline)
+            Text("Amis en commun (\(mutual.count))").font(.wely.headline)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
                     ForEach(mutual) { friend in
                         NavigationLink(value: Route.person(friend.userId)) {
                             VStack {
                                 AvatarView(userId: friend.userId, size: 52)
-                                Text(friend.userName).font(.caption).lineLimit(1)
+                                Text(friend.userName).font(.wely.caption).lineLimit(1)
                             }
                         }
                         .buttonStyle(.plain)
@@ -240,7 +240,7 @@ struct Card<Content: View>: View {
         content()
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -252,18 +252,18 @@ struct CompactEventRow: View {
         HStack(spacing: 12) {
             DateBadge(date: event.startDate, tentative: event.isOpenPoll)
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(event.title).font(.wely.subheadline.weight(.semibold)).lineLimit(1)
                 Text(event.isOpenPoll ? "Date en sondage" : Date.timeRange(event.startDate, event.endDate))
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.wely.caption).foregroundStyle(.secondary)
                 if !event.location.isEmpty {
-                    Text(event.location).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text(event.location).font(.wely.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.wely.caption).foregroundStyle(.tertiary)
         }
         .padding(10)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -275,19 +275,19 @@ private struct FriendCalendarSheet: View {
     @State private var state: Loadable<[FriendCalendarEntry]> = .loading
 
     var body: some View {
-        NavigationStack {
+        WelyNavigationStack {
             LoadableView(state: state) { entries in
                 if entries.isEmpty {
-                    ContentUnavailableView("Agenda libre", systemImage: "calendar", description: Text("Rien de prévu dans les 4 prochaines semaines."))
+                    EmptyStateView(title: "Agenda libre", systemImage: "calendar", message: "Rien de prévu dans les 4 prochaines semaines.")
                 } else {
                     List(entries, id: \.self) { entry in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(entry.title ?? "Occupé").font(.body.weight(entry.title == nil ? .regular : .semibold))
+                            Text(entry.title ?? "Occupé").font(.wely.body.weight(entry.title == nil ? .regular : .semibold))
                                 .foregroundStyle(entry.title == nil ? .secondary : .primary)
                             Text("\(entry.start.dayLabel()) · \(Date.timeRange(entry.start, entry.end))")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.wely.caption).foregroundStyle(.secondary)
                             if let location = entry.location, !location.isEmpty {
-                                Text(location).font(.caption).foregroundStyle(.secondary)
+                                Text(location).font(.wely.caption).foregroundStyle(.secondary)
                             }
                         }
                     }

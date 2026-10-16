@@ -91,6 +91,7 @@ struct SSEParserTests {
 struct LinkAndMoneyTests {
     @Test func webPathsMapToScreens() {
         #expect(AppDestination(webPath: "/event/e1") == .event("e1"))
+        #expect(AppDestination(webPath: "/preferences?account=delete") == .preferences)
         #expect(AppDestination(webPath: "/event/feed/e1") == .event("e1"))
         #expect(AppDestination(webPath: "/chat/c1?x=1") == .conversation("c1"))
         #expect(AppDestination(webPath: "/friends/u1") == .person("u1"))
