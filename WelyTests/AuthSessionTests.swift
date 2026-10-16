@@ -79,6 +79,63 @@ struct AuthSessionTests {
         #expect(try await session.validAccessToken() == "AT")
     }
 
+    @Test func signingInWithAPasswordStoresTheTokens() async throws {
+        let http = StubTransport([(200, tokenJSON)])
+        let store = InMemoryTokenStore()
+        let session = AuthSession(config: config, store: store, http: http)
+
+        try await session.signIn(username: "  robin \n", password: "p&ss=word")
+
+        #expect(session.state == .signedIn)
+        #expect(store.load()?.accessToken == "AT")
+        #expect(http.requests[0].url?.absoluteString == "http://kc/realms/wely-realm/protocol/openid-connect/token")
+        let form = http.form(0)
+        #expect(form["grant_type"] == "password")
+        #expect(form["client_id"] == "wely-client")
+        #expect(form["username"] == "robin")
+        #expect(form["password"] == "p&ss=word")
+        #expect(form["scope"] == "openid profile email")
+    }
+
+    @Test func aWrongPasswordIsInvalidCredentials() async {
+        let http = StubTransport([(401, #"{"error":"invalid_grant","error_description":"Invalid user credentials"}"#)])
+        let session = AuthSession(config: config, store: InMemoryTokenStore(), http: http)
+        await #expect(throws: AuthError.invalidCredentials) {
+            try await session.signIn(username: "robin", password: "nope")
+        }
+        #expect(session.state == .signedOut)
+    }
+
+    @Test func anAccountOwingAnActionIsNotReady() async {
+        let http = StubTransport([(400, #"{"error":"invalid_grant","error_description":"Account is not fully set up"}"#)])
+        let session = AuthSession(config: config, store: InMemoryTokenStore(), http: http)
+        await #expect(throws: AuthError.accountNotReady) {
+            try await session.signIn(username: "robin", password: "pw")
+        }
+    }
+
+    @Test func otherSignInRefusalsKeepKeycloaksWords() async {
+        let http = StubTransport([(401, #"{"error":"unauthorized_client","error_description":"Client not allowed for direct access grants"}"#), (503, "")])
+        let session = AuthSession(config: config, store: InMemoryTokenStore(), http: http)
+        await #expect(throws: AuthError.server("Client not allowed for direct access grants")) {
+            try await session.signIn(username: "robin", password: "pw")
+        }
+        await #expect(throws: AuthError.server("HTTP 503")) {
+            try await session.signIn(username: "robin", password: "pw")
+        }
+    }
+
+    @Test func registrationOpensKeycloaksSignUpForm() {
+        let session = AuthSession(config: config, store: InMemoryTokenStore())
+        let url = session.beginSignIn(registration: true)
+        #expect(url.absoluteString.hasPrefix("http://kc/realms/wely-realm/protocol/openid-connect/registrations?"))
+        #expect(url.absoluteString.contains("code_challenge="))
+    }
+
+    @Test func resetPasswordPointsAtKeycloaksForm() {
+        #expect(config.resetPasswordURL.absoluteString == "http://kc/realms/wely-realm/login-actions/reset-credentials?client_id=wely-client")
+    }
+
     @Test func aForeignStateIsRefused() async {
         let session = AuthSession(config: config, store: InMemoryTokenStore(), http: StubTransport([]))
         _ = session.beginSignIn()
