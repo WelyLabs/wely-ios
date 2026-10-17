@@ -15,6 +15,9 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Asked by the Explore map, to centre it on the user. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Wely affiche ta position sur la carte pour te montrer les événements autour de toi.</string>
 	<!-- Outfit, wely-web's face (OFL-1.1, google/fonts), as one variable font. -->
 	<key>UIAppFonts</key>
 	<array>

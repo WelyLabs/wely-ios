@@ -136,6 +136,8 @@ private struct EventsMap: View {
     @State private var events: [FeedEvent] = []
     @State private var selected: FeedEvent?
     @State private var region: MKCoordinateRegion?
+    // The map's location button stays inert until the app has asked for location access.
+    @State private var locationManager = CLLocationManager()
 
     var body: some View {
         Map(position: $position, selection: Binding(get: { selected?.id }, set: { id in selected = events.first { $0.id == id } })) {
@@ -151,6 +153,9 @@ private struct EventsMap: View {
         .mapControls {
             MapUserLocationButton()
             MapCompass()
+        }
+        .onAppear {
+            if locationManager.authorizationStatus == .notDetermined { locationManager.requestWhenInUseAuthorization() }
         }
         .onMapCameraChange(frequency: .onEnd) { context in region = context.region }
         .task(id: region.map { "\($0.center.latitude),\($0.center.longitude),\($0.span.latitudeDelta)" }) {
