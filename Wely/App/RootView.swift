@@ -59,10 +59,10 @@ struct MainTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        // Unlocking brings the app forward, out of a blur, as the lock screen lifts off it.
-        .scaleEffect(locked ? 0.94 : 1)
-        .blur(radius: locked ? 16 : 0)
-        .animation(AppLockOverlay.unlocking, value: locked)
+        // Unlocking brings the app out of a blur as the lock screen lifts off it. Only the blur is
+        // animated: iOS re-lays the screens out (safe areas) as Face ID hands back, and an
+        // animation over the whole view eased that into a slow drift.
+        .animation(AppLockOverlay.unlocking) { $0.blur(radius: locked ? 16 : 0) }
         .background(Theme.canvas.ignoresSafeArea())
         .animation(.snappy(duration: 0.25), value: app.tabBarHiders == 0 && !keyboardShown)
         .onChange(of: app.selectedTab, initial: true) { _, tab in opened.insert(tab) }
