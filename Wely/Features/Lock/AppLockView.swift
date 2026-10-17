@@ -8,7 +8,7 @@ struct AppLockOverlay: View {
     private var lock: AppLock { app.lock }
 
     /// Shared with the screens behind, so both move as one.
-    static let unlocking = Animation.smooth(duration: 0.25)
+    static let unlocking = Animation.smooth(duration: 0.5)
 
     var body: some View {
         ZStack {
@@ -47,7 +47,16 @@ struct AppLockOverlay: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.canvas.ignoresSafeArea())
+            // Frosted glass rather than a blurred app: fading a material costs the same on every
+            // screen, where re-blurring a heavy one (the map, a chat full of photos) each frame
+            // dropped frames and stretched the unlock. Opaque while out of sight, for the switcher.
+            .background {
+                ZStack {
+                    Rectangle().fill(.ultraThinMaterial)
+                    Theme.canvas.opacity(lock.isHidden ? 1 : 0.82)
+                }
+                .ignoresSafeArea()
+            }
             // Face ID at once, each time Wely comes back on screen locked.
             .task(id: lock.isLocked && !lock.isHidden) {
                 if lock.isLocked && !lock.isHidden { await lock.unlock() }

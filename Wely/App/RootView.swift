@@ -37,8 +37,6 @@ struct MainTabView: View {
     @State private var keyboardShown = false
     @State private var offeringLock = false
 
-    private var locked: Bool { app.lock.isCovering }
-
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
@@ -59,10 +57,6 @@ struct MainTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        // Unlocking brings the app out of a blur as the lock screen lifts off it. Only the blur is
-        // animated: iOS re-lays the screens out (safe areas) as Face ID hands back, and an
-        // animation over the whole view eased that into a slow drift.
-        .animation(AppLockOverlay.unlocking) { $0.blur(radius: locked ? 16 : 0) }
         .background(Theme.canvas.ignoresSafeArea())
         .animation(.snappy(duration: 0.25), value: app.tabBarHiders == 0 && !keyboardShown)
         .onChange(of: app.selectedTab, initial: true) { _, tab in opened.insert(tab) }
