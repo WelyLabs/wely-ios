@@ -23,6 +23,7 @@ struct PreferencesView: View {
 
                 themeCard
                 notificationsCard
+                securityCard
                 accountCard
                 aboutCard
             }
@@ -118,6 +119,28 @@ struct PreferencesView: View {
                   systemImage: "iphone.radiowaves.left.and.right")
                 .font(.wely.footnote)
                 .foregroundStyle(Theme.ink2)
+        }
+    }
+
+    // MARK: Security
+
+    private var securityCard: some View {
+        let biometry = app.lock.biometryName ?? "le code"
+        return PreferenceCard(title: "Sécurité", hint: "Propre à cet iPhone.") {
+            PreferenceToggle(
+                title: "Verrouiller avec \(biometry)",
+                detail: "Wely demande \(biometry) au lancement, et quand vous revenez après plus d'une minute.",
+                isOn: Binding(
+                    get: { app.lock.isEnabled },
+                    set: { on in
+                        if on { Task { await app.lock.enable() } } else { app.lock.disable() }
+                    }))
+                .disabled(!app.lock.isAvailable && !app.lock.isEnabled)
+            if !app.lock.isAvailable {
+                Text("Définissez un code sur l'iPhone pour pouvoir verrouiller Wely.")
+                    .font(.wely.footnote)
+                    .foregroundStyle(Theme.ink2)
+            }
         }
     }
 

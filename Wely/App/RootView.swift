@@ -3,6 +3,7 @@ import SwiftUI
 /// The sign-in screen, or the app once signed in.
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -16,6 +17,14 @@ struct RootView: View {
         .animation(.default, value: app.session.state)
         .task(id: app.session.state) {
             if app.session.state == .signedIn { await app.start() } else { app.stop() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active: app.lock.didBecomeActive()
+            case .inactive: app.lock.didResignActive()
+            case .background: app.lock.didEnterBackground()
+            @unknown default: break
+            }
         }
     }
 }
@@ -53,6 +62,8 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardShown = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardShown = false }
         .overlay(alignment: .top) { NotificationBanner() }
+        .overlay { AppLockOverlay() }
+        // Above the lock: a call answered from the lock screen shows without Face ID.
         .overlay { CallOverlay() }
     }
 

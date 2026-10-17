@@ -21,6 +21,7 @@ final class AppModel {
     let calls: CallController
     let push: DevicePush
     let systemCalls: SystemCalls
+    let lock = AppLock()
 
     /// Bumped after a change elsewhere (an event joined, created...) so lists reload.
     var eventsVersion = 0
@@ -78,6 +79,7 @@ final class AppModel {
     func stop() {
         notifications.stop()
         calls.stopListening()
+        lock.reset()
         chatSocket.disconnect()
         people.reset()
     }
