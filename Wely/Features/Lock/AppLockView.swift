@@ -8,7 +8,7 @@ struct AppLockOverlay: View {
     private var lock: AppLock { app.lock }
 
     /// Shared with the screens behind, so both move as one.
-    static let unlocking = Animation.smooth(duration: 0.5)
+    static let unlocking = Animation.smooth(duration: 0.25)
 
     var body: some View {
         ZStack {
