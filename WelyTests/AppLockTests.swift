@@ -96,4 +96,22 @@ struct AppLockTests {
         #expect(!disabled.isLocked)
         #expect(!lock(check).isEnabled)
     }
+
+    @Test func isOfferedOnceWhenThePhoneCanCheck() async {
+        let check = FakeCheck()
+        let lock = lock(check)
+        #expect(lock.shouldOffer)
+        lock.markOffered()
+        #expect(!lock.shouldOffer)
+    }
+
+    @Test func isNotOfferedWhenOnOrUnavailable() async {
+        let check = FakeCheck()
+        check.isAvailable = false
+        #expect(!lock(check).shouldOffer)
+        check.isAvailable = true
+        let enabled = lock(check)
+        await enabled.enable()
+        #expect(!enabled.shouldOffer)
+    }
 }

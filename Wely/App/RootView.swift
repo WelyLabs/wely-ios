@@ -35,6 +35,7 @@ struct MainTabView: View {
     @Environment(AppModel.self) private var app
     @State private var opened: Set<AppTab> = []
     @State private var keyboardShown = false
+    @State private var offeringLock = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -62,6 +63,20 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardShown = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardShown = false }
         .overlay(alignment: .top) { NotificationBanner() }
+        .task {
+            // Once the first screen settled, not over the sign-in transition.
+            try? await Task.sleep(for: .seconds(1))
+            if app.lock.shouldOffer { offeringLock = true }
+        }
+        .alert("Protéger Wely avec \(app.lock.biometryName ?? "le code") ?", isPresented: $offeringLock) {
+            Button("Activer") {
+                app.lock.markOffered()
+                Task { await app.lock.enable() }
+            }
+            Button("Plus tard", role: .cancel) { app.lock.markOffered() }
+        } message: {
+            Text("Wely vous le demandera à l'ouverture, pour que personne d'autre ne lise vos messages. Vous pourrez changer d'avis dans Préférences › Sécurité.")
+        }
         .overlay { AppLockOverlay() }
         // Above the lock: a call answered from the lock screen shows without Face ID.
         .overlay { CallOverlay() }

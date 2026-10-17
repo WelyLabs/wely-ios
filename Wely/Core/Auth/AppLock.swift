@@ -42,6 +42,7 @@ final class AppLock {
     /// How long Wely may stay in the background before asking again.
     static let grace: Duration = .seconds(60)
     static let enabledKey = "wely.appLock.enabled"
+    static let offeredKey = "wely.appLock.offered"
 
     private(set) var isEnabled: Bool
     private(set) var isLocked: Bool
@@ -62,6 +63,15 @@ final class AppLock {
         isEnabled = enabled
         // A cold start counts as coming back after a while.
         isLocked = enabled
+    }
+
+    /// Proposed once per iPhone, after signing in, when the phone can check its owner.
+    var shouldOffer: Bool {
+        !isEnabled && check.isAvailable && !defaults.bool(forKey: Self.offeredKey)
+    }
+
+    func markOffered() {
+        defaults.set(true, forKey: Self.offeredKey)
     }
 
     var biometryName: String? { check.biometryName }
