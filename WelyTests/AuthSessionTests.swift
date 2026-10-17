@@ -59,6 +59,7 @@ struct AuthSessionTests {
         #expect(items["code_challenge_method"] == "S256")
         #expect(items["code_challenge"]?.isEmpty == false)
         #expect(items["state"]?.isEmpty == false)
+        #expect(items["scope"] == "openid profile email offline_access")
     }
 
     @Test func completingSignInExchangesTheCode() async throws {
@@ -94,7 +95,8 @@ struct AuthSessionTests {
         #expect(form["client_id"] == "wely-client")
         #expect(form["username"] == "robin")
         #expect(form["password"] == "p&ss=word")
-        #expect(form["scope"] == "openid profile email")
+        // offline_access, or closing the app for half an hour signs the user out.
+        #expect(form["scope"] == "openid profile email offline_access")
     }
 
     @Test func aWrongPasswordIsInvalidCredentials() async {

@@ -57,6 +57,10 @@ final class AuthSession {
 
     // MARK: Sign in
 
+    /// offline_access: a refresh token that outlives Keycloak's browser session (30 minutes idle),
+    /// valid 30 days without use and renewed by each, so closing the app does not sign out.
+    static let scope = "openid profile email offline_access"
+
     /// Signs in with what the user typed on the login screen.
     func signIn(username: String, password: String) async throws {
         lastError = nil
@@ -67,7 +71,7 @@ final class AuthSession {
                 "client_id": config.clientId,
                 "username": username.trimmingCharacters(in: .whitespacesAndNewlines),
                 "password": password,
-                "scope": "openid profile email",
+                "scope": Self.scope,
             ])
         } catch let error as OAuthFailure {
             // Keycloak answers invalid_grant for both a wrong password and an account that still
@@ -95,7 +99,7 @@ final class AuthSession {
             URLQueryItem(name: "client_id", value: config.clientId),
             URLQueryItem(name: "redirect_uri", value: config.redirectURI),
             URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "scope", value: "openid profile email"),
+            URLQueryItem(name: "scope", value: Self.scope),
             URLQueryItem(name: "state", value: pkce.state),
             URLQueryItem(name: "code_challenge", value: pkce.challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
