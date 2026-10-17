@@ -7,3 +7,6 @@ build/
 *.dSYM.zip
 *.dSYM
 .DS_Store
+
+# Personal signing team and bundle id
+Config/Signing.local.xcconfig

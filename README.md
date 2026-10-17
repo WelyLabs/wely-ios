@@ -28,8 +28,23 @@ xcodebuild test -project Wely.xcodeproj -scheme Wely -destination 'platform=iOS 
 ## Environments
 
 URLs are build settings of the `Wely` target (`WELY_GATEWAY_URL`, `WELY_KEYCLOAK_URL`,
-`WELY_WEB_URL`), read at runtime from `Config/Wely-Info.plist`. They default to `localhost`,
-which the simulator shares with the Mac.
+`WELY_WEB_URL`), read at runtime from `Config/Wely-Info.plist`. In the simulator they point
+at `localhost`, which it shares with the Mac; on a real iPhone (`sdk=iphoneos*`), which cannot
+reach the Mac's `localhost`, at the dev infra (`dev-web.welylabs.app`, `dev-auth.welylabs.app`).
+
+## On a real iPhone
+
+Signing comes from `Config/Signing.xcconfig`. Put your team and a bundle id of your own in
+`Config/Signing.local.xcconfig` (ignored by git), not in the project's settings:
+
+```
+DEVELOPMENT_TEAM = ABCDE12345
+PRODUCT_BUNDLE_IDENTIFIER = com.yourname.wely
+```
+
+The team id is in Xcode → Settings → Accounts. With a free Apple ID, plug the iPhone in before
+the first build (Xcode registers it to create the profile), turn on Developer Mode, then trust
+the profile in Settings → General → VPN & Device Management. The app expires after 7 days.
 
 ## Layout
 

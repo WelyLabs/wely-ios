@@ -1,0 +1,11 @@
+// The app's identity and signing team. Xcode needs a team to install on a real iPhone,
+// and `com.welylabs.wely` may not be free for a personal team: set your own in
+// `Signing.local.xcconfig` (ignored by git) rather than in the project, e.g.
+//
+//     DEVELOPMENT_TEAM = ABCDE12345
+//     PRODUCT_BUNDLE_IDENTIFIER = com.yourname.wely
+
+PRODUCT_BUNDLE_IDENTIFIER = com.welylabs.wely
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"
