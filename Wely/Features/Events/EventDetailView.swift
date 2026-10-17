@@ -20,6 +20,7 @@ struct EventDetailView: View {
     @State private var leaving = false
     @State private var editing = false
     @State private var confirmingDelete = false
+    @State private var addingToCalendar = false
 
     private var myId: String? { app.people.myId }
     private var isOrganizer: Bool { event?.organizerId == myId }
@@ -189,6 +190,9 @@ struct EventDetailView: View {
                 InfoRow(systemImage: "calendar", title: Date.eventWhen(event.startDate, event.endDate),
                         subtitle: Calendar.wely.isDateInToday(event.startDate) ? "C'est aujourd'hui" : nil)
             }
+            if !event.isOpenPoll, !event.isPast {
+                addToCalendar(event)
+            }
             if !event.location.isEmpty {
                 InfoRow(systemImage: "mappin.and.ellipse", title: event.location, subtitle: nil)
             }
@@ -214,6 +218,24 @@ struct EventDetailView: View {
                 }
                 .buttonStyle(.welySecondary)
             }
+        }
+    }
+
+    /// A copy into the user's own agenda, once the date is fixed.
+    private func addToCalendar(_ event: FeedEvent) -> some View {
+        Menu {
+            Button { addingToCalendar = true } label: {
+                Label("Calendrier de l'iPhone", systemImage: "calendar.badge.plus")
+            }
+            Link(destination: CalendarExport.googleCalendarURL(event, eventURL: CalendarExport.eventURL(event))) {
+                Label("Google Agenda", systemImage: "arrow.up.right.square")
+            }
+        } label: {
+            Label("Ajouter à mon calendrier", systemImage: "calendar.badge.plus")
+        }
+        .buttonStyle(.welySecondary)
+        .sheet(isPresented: $addingToCalendar) {
+            AddToCalendarSheet(event: event).ignoresSafeArea()
         }
     }
 
