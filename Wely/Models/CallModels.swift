@@ -104,6 +104,25 @@ struct LayerChoice: Codable, Hashable, Sendable {
     let layer: VideoLayer
 }
 
+/// What a VoIP push carries: enough to show the call before the app can reach the backend.
+struct IncomingCallPush: Equatable, Sendable {
+    let callId: String
+    let caller: String
+    let callerId: String?
+    let media: CallMedia
+    /// The call stopped ringing (the caller hung up, or nobody answered).
+    let ended: Bool
+
+    nonisolated init?(payload: [AnyHashable: Any]) {
+        guard let callId = payload["callId"] as? String, !callId.isEmpty else { return nil }
+        self.callId = callId
+        caller = payload["caller"] as? String ?? "Wely"
+        callerId = payload["callerId"] as? String
+        media = (payload["media"] as? String).flatMap(CallMedia.init(rawValue:)) ?? .audio
+        ended = payload["ended"] as? Bool ?? false
+    }
+}
+
 struct StartCallRequest: Codable, Sendable {
     let conversationId: String
     let media: CallMedia

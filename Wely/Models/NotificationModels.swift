@@ -51,9 +51,16 @@ enum ApnsEnvironment: String, Codable, Sendable {
     case production = "PRODUCTION"
 }
 
+/// An alert token gets notifications; a PushKit (VoIP) token, incoming calls for CallKit.
+enum ApnsPushKind: String, Codable, Sendable {
+    case alert = "ALERT"
+    case voip = "VOIP"
+}
+
 struct ApnsDeviceRequest: Codable, Sendable {
     let token: String
     let environment: ApnsEnvironment
+    var kind = ApnsPushKind.alert
 }
 
 struct UnreadCount: Codable, Sendable {

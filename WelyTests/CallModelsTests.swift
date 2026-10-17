@@ -40,4 +40,24 @@ struct CallModelsTests {
         #expect(object["trackName"] as? String == "audio")
         #expect(object["layer"] == nil)
     }
+
+    @Test func readsAVoipPushForCallKit() {
+        let push = IncomingCallPush(payload: ["aps": [:], "callId": "c1", "caller": "Léa", "callerId": "u2", "media": "VIDEO"])
+        #expect(push?.callId == "c1")
+        #expect(push?.caller == "Léa")
+        #expect(push?.media == .video)
+        #expect(push?.ended == false)
+    }
+
+    @Test func readsTheEndOfARingingCall() {
+        let push = IncomingCallPush(payload: ["aps": [:], "callId": "c1", "ended": true])
+        #expect(push?.ended == true)
+        #expect(push?.media == .audio)
+        #expect(push?.caller == "Wely")
+    }
+
+    @Test func aPushWithoutCallIsNotACall() {
+        #expect(IncomingCallPush(payload: ["aps": [:]]) == nil)
+        #expect(IncomingCallPush(payload: ["callId": ""]) == nil)
+    }
 }

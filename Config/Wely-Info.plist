@@ -20,10 +20,12 @@
 	<string>Wely utilise le micro pendant les appels audio et vidéo.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Wely utilise la caméra pendant les appels vidéo.</string>
-	<!-- A call keeps going when the screen locks or another app comes to the front. -->
+	<!-- A call keeps going when the screen locks or another app comes to the front; a VoIP
+	     push wakes the app to ring an incoming call with CallKit. -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>voip</string>
 	</array>
 	<!-- Outfit, wely-web's face (OFL-1.1, google/fonts), as one variable font. -->
 	<key>UIAppFonts</key>

@@ -43,6 +43,11 @@ final class CallController {
 
     static let heartbeatInterval = Duration.seconds(15)
 
+    /// Whether iOS's own call screen (CallKit) already rings this call.
+    @ObservationIgnored var isShownBySystem: (String) -> Bool = { _ in false }
+    /// A call ended here, for CallKit to close its screen.
+    @ObservationIgnored var onCallEnded: ((String, _ answered: Bool) -> Void)?
+
     init(service: CallService, socket: ChatSocket, myId: @escaping () -> String?) {
         self.service = service
         self.socket = socket
@@ -118,8 +123,13 @@ final class CallController {
     /// Refuses a ringing call.
     func decline() {
         guard let incoming else { return }
-        stopRinging()
-        Task { try? await service.decline(incoming.id) }
+        decline(incoming.id)
+    }
+
+    /// Refuses a call by id, such as one declined on iOS's call screen.
+    func decline(_ callId: String) {
+        if incoming?.id == callId { stopRinging() }
+        Task { [service] in try? await service.decline(callId) }
     }
 
     /// Hangs up: the call ends here whatever the server answers.
@@ -134,9 +144,11 @@ final class CallController {
         try? await service.live(conversationId: conversationId)
     }
 
-    func toggleMute() {
-        muted.toggle()
-        media?.audio.isEnabled = !muted
+    func toggleMute() { setMuted(!muted) }
+
+    func setMuted(_ on: Bool) {
+        muted = on
+        media?.audio.isEnabled = !on
     }
 
     /// Off stops the camera, so its light goes out; on, in a call started without video, it is
@@ -184,12 +196,13 @@ final class CallController {
         let inCall = call?.id == event.call.id
         switch event.type {
         case .ringing:
-            if call == nil, event.call.startedBy != myId() {
+            if call == nil, event.call.startedBy != myId(), !isShownBySystem(event.call.id) {
                 incoming = event.call
                 ringer.start()
             }
         case .ended:
             if incoming?.id == event.call.id { stopRinging() }
+            if !inCall { onCallEnded?(event.call.id, false) }
             if inCall { teardown() }
         case .declined:
             // A one-to-one call the other declined ends with an ENDED event; nothing to do here.
@@ -308,6 +321,7 @@ final class CallController {
 
     /// Everything back to idle: no connection, no microphone, no heartbeat.
     private func teardown() {
+        if let call { onCallEnded?(call.id, true) }
         heartbeat?.cancel()
         heartbeat = nil
         session?.close()

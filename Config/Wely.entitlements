@@ -5,5 +5,8 @@
 	<!-- APNs. Only a paid Apple Developer team can sign it: see Signing.xcconfig. -->
 	<key>aps-environment</key>
 	<string>development</string>
+	<!-- Calls may break through a Focus, as a phone call does. -->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
 </dict>
 </plist>

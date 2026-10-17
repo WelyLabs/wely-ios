@@ -20,6 +20,7 @@ final class AppModel {
     let chatSocket: ChatSocket
     let calls: CallController
     let push: DevicePush
+    let systemCalls: SystemCalls
 
     /// Bumped after a change elsewhere (an event joined, created...) so lists reload.
     var eventsVersion = 0
@@ -50,6 +51,8 @@ final class AppModel {
         let people = people
         calls = CallController(service: CallService(api: api), socket: socket, myId: { people.myId })
         push = DevicePush(service: notificationService)
+        systemCalls = SystemCalls(service: notificationService)
+        wireSystemCalls()
         push.onOpen = { [weak self] destination in self?.open(destination) }
         notifications.onArrival = { [weak self] notification in self?.push.showLocally(notification) }
     }
@@ -80,6 +83,20 @@ final class AppModel {
     }
 
     func eventsChanged() { eventsVersion += 1 }
+
+    /// iOS's call screen and the app's calls, kept in step.
+    private func wireSystemCalls() {
+        let system = systemCalls
+        let calls = calls
+        calls.isShownBySystem = { system.isShowing($0) }
+        calls.onCallEnded = { callId, answered in
+            if answered { system.hungUp(callId) } else { system.callEnded(callId) }
+        }
+        system.onAnswer = { callId, media in await calls.join(callId, media: media) }
+        system.onDecline = { calls.decline($0) }
+        system.onHangUp = { await calls.leave() }
+        system.onMute = { calls.setMuted($0) }
+    }
 
     /// Applies the theme at once, then keeps it with the account; a refused save puts the
     /// previous one back and throws for the screen to say so.
