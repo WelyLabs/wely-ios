@@ -15,6 +15,9 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Asked by the Explore map, to centre it on the user. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Wely affiche ta position sur la carte pour te montrer les événements autour de toi.</string>
 	<!-- Asked when joining a call, and when turning the camera on in one. -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Wely utilise le micro pendant les appels audio et vidéo.</string>
