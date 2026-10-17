@@ -208,6 +208,11 @@ final class CallController {
             // A one-to-one call the other declined ends with an ENDED event; nothing to do here.
             break
         case .participantJoined:
+            if !inCall, event.actorId == myId() {
+                // Answered on another device: stop ringing here.
+                if incoming?.id == event.call.id { stopRinging() }
+                onCallEnded?(event.call.id, false)
+            }
             if inCall {
                 call = event.call
                 relayer()

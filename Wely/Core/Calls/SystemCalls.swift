@@ -19,6 +19,8 @@ final class SystemCalls: NSObject {
     var onHangUp: (() async -> Void)?
     /// The system screen's mute button.
     var onMute: ((Bool) -> Void)?
+    /// The caller's name: the push only says "Appel audio" or "Appel vidéo".
+    var nameOf: ((String) async -> String?)?
 
     private let service: NotificationService
     private let registry = PKPushRegistry(queue: .main)
@@ -61,8 +63,17 @@ final class SystemCalls: NSObject {
 
     private func report(_ push: IncomingCallPush, completion: @escaping () -> Void) {
         if push.ended {
-            callEnded(push.callId, reason: .unanswered)
-            return completion()
+            if isShowing(push.callId) {
+                callEnded(push.callId, reason: .unanswered)
+                return completion()
+            }
+            // Not ringing here: iOS still wants every VoIP push shown, so show it and end it.
+            let uuid = UUID()
+            provider.reportNewIncomingCall(with: uuid, update: CXCallUpdate()) { [provider] _ in
+                provider.reportCall(with: uuid, endedAt: nil, reason: .remoteEnded)
+                completion()
+            }
+            return
         }
         let uuid = uuids[push.callId] ?? UUID()
         uuids[push.callId] = uuid
@@ -78,6 +89,12 @@ final class SystemCalls: NSObject {
         provider.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
             if error != nil { self?.uuids.removeValue(forKey: push.callId) }
             completion()
+        }
+        guard let callerId = push.callerId else { return }
+        Task { [weak self] in
+            guard let name = await self?.nameOf?(callerId), let self, self.uuids[push.callId] == uuid else { return }
+            update.localizedCallerName = name
+            self.provider.reportCall(with: uuid, updated: update)
         }
     }
 

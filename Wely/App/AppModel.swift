@@ -96,6 +96,12 @@ final class AppModel {
         system.onDecline = { calls.decline($0) }
         system.onHangUp = { await calls.leave() }
         system.onMute = { calls.setMuted($0) }
+        let people = people
+        let social = social
+        system.nameOf = { id in
+            if let known = people.directory[id] { return known.name }
+            return try? await social.users().first { $0.person.id == id }?.person.name
+        }
     }
 
     /// Applies the theme at once, then keeps it with the account; a refused save puts the
