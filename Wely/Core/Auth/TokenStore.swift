@@ -45,7 +45,8 @@ protocol TokenStore: Sendable {
     func clear()
 }
 
-/// The tokens in the Keychain, readable only while the device is unlocked.
+/// The tokens in the Keychain, readable once the phone was unlocked after starting up: the app
+/// is also woken locked (a call, prewarming), and must still find its session then.
 struct KeychainTokenStore: TokenStore {
     var service = "com.welylabs.wely.auth"
     var account = "tokens"
@@ -71,7 +72,7 @@ struct KeychainTokenStore: TokenStore {
         clear()
         var item = query
         item[kSecValueData as String] = data
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(item as CFDictionary, nil)
     }
 

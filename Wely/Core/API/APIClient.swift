@@ -133,8 +133,10 @@ final class APIClient {
         let token: String
         do {
             token = try await session.validAccessToken()
-        } catch {
+        } catch AuthError.sessionExpired {
             throw APIError.unauthorized
+        } catch {
+            throw APIError.network(error)
         }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
@@ -147,9 +149,16 @@ final class APIClient {
         }
 
         if response.statusCode == 401 {
-            guard !retried, (try? await session.refresh()) != nil else {
+            guard !retried else {
                 session.expire()
                 throw APIError.unauthorized
+            }
+            do {
+                try await session.refresh()
+            } catch AuthError.sessionExpired {
+                throw APIError.unauthorized
+            } catch {
+                throw APIError.network(error)
             }
             return try await send(request, retried: true)
         }

@@ -20,7 +20,9 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
-            case .active: app.lock.didBecomeActive()
+            case .active:
+                app.session.restore()
+                app.lock.didBecomeActive()
             case .inactive: app.lock.didResignActive()
             case .background: app.lock.didEnterBackground()
             @unknown default: break

@@ -2,7 +2,8 @@ import Foundation
 import Testing
 @testable import Wely
 
-/// Answers every request with the next canned response and records what was sent.
+/// Answers every request with the next canned response and records what was sent; a status of
+/// -1 is a request that never reached the server.
 final class StubTransport: HTTPTransport, @unchecked Sendable {
     var responses: [(Int, String)]
     private(set) var requests: [URLRequest] = []
@@ -12,6 +13,7 @@ final class StubTransport: HTTPTransport, @unchecked Sendable {
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         let (status, body) = responses.isEmpty ? (500, "") : responses.removeFirst()
+        if status == -1 { throw URLError(.notConnectedToInternet) }
         return (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
     }
 
@@ -183,6 +185,46 @@ struct AuthSessionTests {
         #expect(store.load() == nil)
     }
 
+    @Test func aRefreshWithoutNetworkKeepsTheSession() async {
+        let expiring = TokenSet(accessToken: "old", refreshToken: "RT0", idToken: nil, expiresAt: .now)
+        let store = InMemoryTokenStore(expiring)
+        let session = AuthSession(config: config, store: store, http: StubTransport([(-1, "")]))
+
+        await #expect(throws: URLError.self) { try await session.validAccessToken() }
+        #expect(session.state == .signedIn)
+        #expect(store.load() == expiring)
+    }
+
+    @Test func aKeycloakOutageKeepsTheSession() async {
+        let expiring = TokenSet(accessToken: "old", refreshToken: "RT0", idToken: nil, expiresAt: .now)
+        let session = AuthSession(config: config, store: InMemoryTokenStore(expiring), http: StubTransport([(502, "<html>")]))
+
+        await #expect(throws: AuthError.server("HTTP 502")) { try await session.validAccessToken() }
+        #expect(session.state == .signedIn)
+        #expect(session.lastError == nil)
+    }
+
+    @Test func restorePicksUpASessionSavedSinceLaunch() {
+        let store = InMemoryTokenStore()
+        let session = AuthSession(config: config, store: store, http: StubTransport([]))
+        #expect(session.state == .signedOut)
+
+        store.save(TokenSet(accessToken: "a", refreshToken: "RT", idToken: nil, expiresAt: .distantFuture))
+        session.restore()
+
+        #expect(session.state == .signedIn)
+    }
+
+    @Test func restoreFindsNothingAfterSigningOut() async {
+        let store = InMemoryTokenStore(TokenSet(accessToken: "a", refreshToken: "RT", idToken: nil, expiresAt: .distantFuture))
+        let session = AuthSession(config: config, store: store, http: StubTransport([(204, "")]))
+        await session.signOut()
+
+        session.restore()
+
+        #expect(session.state == .signedOut)
+    }
+
     @Test func signOutClearsAndCallsKeycloak() async {
         let tokens = TokenSet(accessToken: "a", refreshToken: "RT", idToken: nil, expiresAt: .distantFuture)
         let http = StubTransport([(204, "")])
@@ -225,6 +267,12 @@ struct APIClientTests {
         let (api, session, _) = signedIn([(401, ""), (200, tokenJSON), (401, "")])
         await #expect(throws: APIError.self) { let _: UserProfile = try await api.get("x") }
         #expect(session.state == .signedOut)
+    }
+
+    @Test func a401WhileOfflineKeepsTheSession() async {
+        let (api, session, _) = signedIn([(401, ""), (-1, "")])
+        await #expect(throws: APIError.self) { let _: UserProfile = try await api.get("x") }
+        #expect(session.state == .signedIn)
     }
 
     @Test func businessCodesGiveTheirSentence() async {

@@ -154,7 +154,7 @@ final class AuthSession {
             throw AuthError.sessionExpired
         }
         let task = Task {
-            try await exchange([
+            try await requestTokens([
                 "grant_type": "refresh_token",
                 "refresh_token": refreshToken,
                 "client_id": config.clientId,
@@ -162,14 +162,28 @@ final class AuthSession {
         }
         refreshTask = task
         defer { refreshTask = nil }
+        // A network error (no signal yet when the app comes back) passes through: the session stays.
         do {
             let fresh = try await task.value
             store(fresh)
             return fresh
-        } catch {
+        } catch let error as OAuthFailure where error.status == 400 || error.status == 401 {
+            // Keycloak refused the refresh token: revoked, or unused for 30 days.
             expire()
             throw AuthError.sessionExpired
+        } catch let error as OAuthFailure {
+            // Keycloak restarting, a 502 from the tunnel: the session is still good.
+            throw AuthError.server(error.message)
         }
+    }
+
+    /// Picks up a session the Keychain would not give at launch: iOS may start the app before
+    /// the phone was first unlocked (prewarming after a restart), when the Keychain is still sealed.
+    func restore() {
+        guard state == .signedOut, tokens == nil, pending == nil, let saved = store.load() else { return }
+        tokens = saved
+        lastError = nil
+        state = .signedIn
     }
 
     // MARK: Sign out
