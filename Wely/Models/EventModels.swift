@@ -34,6 +34,18 @@ enum Visibility: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// What an event is: an ordinary one, someone's yearly birthday, or a surprise kept from its honoree.
+enum EventKind: String, Codable, Sendable {
+    case standard = "STANDARD"
+    case birthday = "BIRTHDAY"
+    case surprise = "SURPRISE"
+
+    /// Unknown kinds from a newer backend read as ordinary events.
+    init(from decoder: Decoder) throws {
+        self = EventKind(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .standard
+    }
+}
+
 /// A point on Earth, in decimal degrees.
 struct Coordinates: Codable, Hashable, Sendable {
     let latitude: Double
@@ -115,18 +127,25 @@ struct FeedEvent: Codable, Hashable, Identifiable, Sendable {
     let communityId: String?
     /// Who answered what, for a community event only.
     let responses: EventResponses?
+    /// Whole days, from 00:00Z of the first to 00:00Z of the day after the last.
+    let allDay: Bool
+    let kind: EventKind
+    /// Whose birthday it is, for a birthday or a surprise.
+    let honoreeId: String?
 
     /// Without an end, an event lasts an hour, as the server counts it.
     static let defaultDuration: TimeInterval = 3600
 
     enum CodingKeys: String, CodingKey {
         case id, title, organizerId, startDate, endDate, location, coordinates, image, description, visibility, poll, communityId, responses
+        case allDay, kind, honoreeId
     }
 
     init(
         id: String, title: String, organizerId: String, startDate: Date, endDate: Date? = nil,
         location: String = "", coordinates: Coordinates? = nil, image: String? = nil, description: String = "",
-        visibility: Visibility? = .friends, poll: Poll? = nil, communityId: String? = nil, responses: EventResponses? = nil
+        visibility: Visibility? = .friends, poll: Poll? = nil, communityId: String? = nil, responses: EventResponses? = nil,
+        allDay: Bool = false, kind: EventKind = .standard, honoreeId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -141,6 +160,9 @@ struct FeedEvent: Codable, Hashable, Identifiable, Sendable {
         self.poll = poll
         self.communityId = communityId
         self.responses = responses
+        self.allDay = allDay
+        self.kind = kind
+        self.honoreeId = honoreeId
     }
 
     init(from decoder: Decoder) throws {
@@ -158,10 +180,15 @@ struct FeedEvent: Codable, Hashable, Identifiable, Sendable {
         poll = try? c.decodeIfPresent(Poll.self, forKey: .poll)
         communityId = try c.decodeIfPresent(String.self, forKey: .communityId)
         responses = try? c.decodeIfPresent(EventResponses.self, forKey: .responses)
+        allDay = (try? c.decodeIfPresent(Bool.self, forKey: .allDay)) ?? false
+        kind = (try? c.decodeIfPresent(EventKind.self, forKey: .kind)) ?? .standard
+        honoreeId = try? c.decodeIfPresent(String.self, forKey: .honoreeId)
     }
 
     var isOpenPoll: Bool { poll?.isOpen == true }
     var isPast: Bool { endDate < .now }
+    /// A birthday is everyone's to see, no one's to join.
+    var isJoinable: Bool { kind != .birthday }
 
     /// The choices offered when creating an event; COMMUNITY is set by the backend.
     static let choosableVisibilities: [Visibility] = [.friends, .public, .private]
@@ -172,6 +199,7 @@ extension FeedEvent {
     func with(start: Date? = nil, end: Date? = nil, poll: Poll?? = nil, responses: EventResponses?? = nil, image: String?? = nil) -> FeedEvent {
         FeedEvent(id: id, title: title, organizerId: organizerId, startDate: start ?? startDate, endDate: end ?? endDate, location: location,
                   coordinates: coordinates, image: image ?? self.image, description: description, visibility: visibility,
-                  poll: poll ?? self.poll, communityId: communityId, responses: responses ?? self.responses)
+                  poll: poll ?? self.poll, communityId: communityId, responses: responses ?? self.responses,
+                  allDay: allDay, kind: kind, honoreeId: honoreeId)
     }
 }

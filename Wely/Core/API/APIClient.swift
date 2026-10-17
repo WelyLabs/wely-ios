@@ -2,31 +2,37 @@ import Foundation
 
 enum APIError: LocalizedError {
     case unauthorized
-    /// `code` is the backend's business code (`SCL-BUS-013`...), when it sent one.
-    case http(status: Int, code: String? = nil, message: String? = nil)
+    /// `code` is the backend's business code (`SCL-BUS-013`...), when it sent one; `eventId`, the
+    /// ProblemDetail property naming the event a conflict is about.
+    case http(status: Int, code: String? = nil, message: String? = nil, eventId: String? = nil)
     case decoding(Error)
     case network(Error)
 
     var errorDescription: String? {
         switch self {
         case .unauthorized: "Votre session a expiré, reconnectez-vous."
-        case .http(_, let code?, _) where ErrorMessages.text(for: code) != nil: ErrorMessages.text(for: code)
-        case .http(let status, _, _) where status >= 500: "Le serveur Wely ne répond pas (\(status))."
-        case .http(403, _, _): "Vous n'avez pas accès à cette ressource."
-        case .http(404, _, _): "Introuvable : cet élément n'existe pas ou n'est plus visible."
-        case .http(let status, _, _): "La requête a échoué (\(status))."
+        case .http(_, let code?, _, _) where ErrorMessages.text(for: code) != nil: ErrorMessages.text(for: code)
+        case .http(let status, _, _, _) where status >= 500: "Le serveur Wely ne répond pas (\(status))."
+        case .http(403, _, _, _): "Vous n'avez pas accès à cette ressource."
+        case .http(404, _, _, _): "Introuvable : cet élément n'existe pas ou n'est plus visible."
+        case .http(let status, _, _, _): "La requête a échoué (\(status))."
         case .decoding: "Réponse inattendue du serveur."
         case .network: "Impossible de joindre Wely. Vérifiez votre connexion."
         }
     }
 
     var code: String? {
-        if case .http(_, let code, _) = self { return code }
+        if case .http(_, let code, _, _) = self { return code }
         return nil
     }
 
     var status: Int? {
-        if case .http(let status, _, _) = self { return status }
+        if case .http(let status, _, _, _) = self { return status }
+        return nil
+    }
+
+    var eventId: String? {
+        if case .http(_, _, _, let eventId) = self { return eventId }
         return nil
     }
 }
@@ -164,7 +170,7 @@ final class APIClient {
         }
         guard (200..<300).contains(response.statusCode) else {
             let body = try? JSONDecoder().decode(ErrorBody.self, from: data)
-            throw APIError.http(status: response.statusCode, code: body?.code, message: body?.message)
+            throw APIError.http(status: response.statusCode, code: body?.code, message: body?.message, eventId: body?.eventId)
         }
         return data
     }
@@ -176,6 +182,7 @@ struct Empty: Codable {}
 private struct ErrorBody: Decodable {
     let code: String?
     let message: String?
+    let eventId: String?
 }
 
 private extension Data {

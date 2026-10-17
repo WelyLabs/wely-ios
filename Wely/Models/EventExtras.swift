@@ -51,6 +51,9 @@ struct EventCreateRequest: Codable, Sendable {
     var visibility: Visibility?
     var candidateSlots: [Slot]?
     var communityId: String?
+    var allDay: Bool?
+    var kind: EventKind?
+    var honoreeId: String?
 
     struct Slot: Codable, Hashable, Sendable {
         var start: Date

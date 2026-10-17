@@ -100,6 +100,16 @@ struct LinkAndMoneyTests {
         #expect(AppDestination(webPath: "/call/x") == .call("x"))
     }
 
+    @Test func calendarLinksMapToADayOrASurprise() {
+        #expect(AppDestination(webPath: "/calendar?date=2026-11-03") == .calendarDay("2026-11-03"))
+        #expect(AppDestination(webPath: "/calendar?surpriseFor=lea&date=2026-11-03") == .surprise(honoreeId: "lea", date: "2026-11-03"))
+        #expect(AppDestination(webPath: "/calendar?date=2026-11-03&surpriseFor=") == .calendarDay("2026-11-03"))
+        #expect(AppDestination(webPath: "/calendar") == nil)
+        #expect(AppDestination(webPath: "/friends/lea") == .person("lea"))
+        #expect(Route(.calendarDay("2026-11-03")) == nil)
+        #expect(Route(.surprise(honoreeId: "lea", date: "2026-11-03")) == nil)
+    }
+
     @Test func invitationTokenInALink() {
         #expect(CommunityInvitation.token(in: "Rejoins : https://wely.app/communities/invite/abcdefghij0123456789") == "abcdefghij0123456789")
         #expect(CommunityInvitation.token(in: "/communities/invite/short") == nil)

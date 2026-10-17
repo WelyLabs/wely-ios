@@ -27,6 +27,8 @@ final class AppModel {
     var eventsVersion = 0
     /// A screen to open from outside the tab (a notification, a shared link).
     var pendingDestination: AppDestination?
+    /// A day or a surprise for the calendar tab to show, from a link.
+    var calendarRequest: AppDestination?
     var selectedTab: AppTab = .calendar
     /// How many open screens want the tab bar out of the way (a conversation, with its composer).
     var tabBarHiders = 0
@@ -124,6 +126,11 @@ final class AppModel {
         case .call(let id):
             // A call is not a screen of a tab: it opens over all of them.
             Task { await calls.join(id) }
+            return
+        case .calendarDay, .surprise:
+            // Not a pushed screen: the calendar selects the day or opens the form itself.
+            selectedTab = .calendar
+            calendarRequest = destination
             return
         case .conversation: selectedTab = .messages
         case .person, .community, .invitation: selectedTab = .social

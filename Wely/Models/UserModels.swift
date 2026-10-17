@@ -11,9 +11,14 @@ struct UserProfile: Codable, Hashable, Sendable {
     @LossyString var hashtag: String = ""
     let bio: String?
     let joinedDate: String?
+    /// « 1995-03-12 », only ever sent to its owner.
+    let birthDate: String?
+    /// False until the signup completion is done; a backend that predates it sends nothing, read as done.
+    @DefaultTrue var registrationCompleted: Bool = true
 
     init(id: String, userName: String, email: String? = nil, firstName: String? = nil, lastName: String? = nil,
-         profilePicUrl: String? = nil, hashtag: String = "", bio: String? = nil, joinedDate: String? = nil) {
+         profilePicUrl: String? = nil, hashtag: String = "", bio: String? = nil, joinedDate: String? = nil,
+         birthDate: String? = nil, registrationCompleted: Bool = true) {
         self.id = id
         self.userName = userName
         self.email = email
@@ -23,6 +28,8 @@ struct UserProfile: Codable, Hashable, Sendable {
         self.hashtag = hashtag
         self.bio = bio
         self.joinedDate = joinedDate
+        self.birthDate = birthDate
+        self.registrationCompleted = registrationCompleted
     }
 
     var displayName: String {
@@ -46,6 +53,11 @@ struct ProfileUpdate: Codable, Sendable {
     var userName: String
     var firstName: String
     var lastName: String
+}
+
+/// `PUT user-service/profile/registration`: what the signup completion asks; later steps add fields here.
+struct RegistrationRequest: Codable, Sendable {
+    var birthDate: String
 }
 
 /// The member's short bio and interests, `user-service/profile/about`.
@@ -73,6 +85,8 @@ struct FriendProfile: Codable, Hashable, Sendable {
     let joinedDate: String?
     let bio: String?
     @DefaultEmpty var interests: [String] = []
+    /// Day and month only: friends never see the year.
+    var birthday: MonthDay? = nil
 
     var displayName: String {
         let full = [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")

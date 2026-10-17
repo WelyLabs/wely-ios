@@ -62,6 +62,40 @@ struct EventModelsTests {
         #expect(bare.initials == "LE")
     }
 
+    @Test func birthdayFieldsDefaultForOlderBackends() throws {
+        let event = try decode(FeedEvent.self, #"{"id":"e1","title":"T","organizerId":"u","startDate":"2026-10-15T17:00:00Z"}"#)
+        #expect(!event.allDay)
+        #expect(event.kind == .standard)
+        #expect(event.honoreeId == nil)
+        #expect(event.isJoinable)
+    }
+
+    @Test func decodesASurpriseAndABirthday() throws {
+        let surprise = try decode(FeedEvent.self, #"{"id":"s","title":"S","organizerId":"u","startDate":"2026-10-15T17:00:00Z","kind":"SURPRISE","honoreeId":"lea"}"#)
+        #expect(surprise.kind == .surprise)
+        #expect(surprise.honoreeId == "lea")
+        let birthday = try decode(FeedEvent.self, """
+        {"id":"b","title":"Anniversaire de Léa","organizerId":"lea","startDate":"2026-03-12T00:00:00Z","endDate":"2026-03-13T00:00:00Z",
+         "allDay":true,"kind":"BIRTHDAY","honoreeId":"lea"}
+        """)
+        #expect(birthday.allDay)
+        #expect(birthday.kind == .birthday)
+        #expect(!birthday.isJoinable)
+        #expect(try decode(FeedEvent.self, #"{"id":"x","title":"X","organizerId":"u","kind":"WEDDING"}"#).kind == .standard)
+    }
+
+    @Test func profileRegistrationFields() throws {
+        let fresh = try decode(UserProfile.self, #"{"id":"1","userName":"robin","birthDate":null,"registrationCompleted":false}"#)
+        #expect(!fresh.registrationCompleted)
+        #expect(fresh.birthDate == nil)
+        // A backend that predates the signup completion does not lock anyone out.
+        let older = try decode(UserProfile.self, #"{"id":"1","userName":"robin"}"#)
+        #expect(older.registrationCompleted)
+        let friend = try decode(FriendProfile.self, #"{"id":"2","userName":"lea","birthday":{"month":3,"day":12}}"#)
+        #expect(friend.birthday == MonthDay(month: 3, day: 12))
+        #expect(try decode(FriendProfile.self, #"{"id":"2","userName":"lea"}"#).birthday == nil)
+    }
+
     @Test func visibilityLabels() {
         #expect(Visibility.friends.label == "Amis")
         #expect(Visibility.community.systemImage == "person.3")

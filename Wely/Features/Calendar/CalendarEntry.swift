@@ -13,14 +13,17 @@ struct CalendarEntry: Hashable, Identifiable, Sendable {
     var id: String { slotId.map { "\(event.id)#\($0)" } ?? event.id }
     var tentative: Bool { slotId != nil }
     var title: String { event.title }
+    /// A fixed all-day event: shown by its UTC days, without times.
+    var isAllDay: Bool { event.allDay && !tentative }
 
     /// Fixed events as they are; each open poll as one tentative entry per proposed slot,
     /// polls deduplicated — as wely-web's `toCalendarEvents`.
     static func make(subscribed: [FeedEvent], polls: [FeedEvent], myId: String?) -> [CalendarEntry] {
         let isMine = { (event: FeedEvent) in myId != nil && event.organizerId == myId }
 
+        // Birthdays come from their own endpoint, with what the calendar needs to draw them.
         let fixed = subscribed
-            .filter { !$0.isOpenPoll }
+            .filter { !$0.isOpenPoll && $0.kind != .birthday }
             .map { CalendarEntry(event: $0, start: $0.startDate, end: $0.endDate, slotId: nil, mine: isMine($0)) }
 
         var seen = Set<String>()
@@ -33,8 +36,13 @@ struct CalendarEntry: Hashable, Identifiable, Sendable {
         return (fixed + tentative).sorted { ($0.start, $0.title) < ($1.start, $1.title) }
     }
 
-    /// True when the entry overlaps the day, so an event across midnight shows on both days.
+    /// True when the entry overlaps the day, so an event across midnight shows on both days; an
+    /// all-day event covers the UTC days it spans, whatever the device's time zone.
     func occurs(on day: Date, calendar: Calendar) -> Bool {
+        if isAllDay {
+            let dayStart = AllDay.start(of: day, calendar: calendar)
+            return start <= dayStart && max(end, start.addingTimeInterval(1)) > dayStart
+        }
         let dayStart = calendar.startOfDay(for: day)
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return false }
         return start < dayEnd && max(end, start.addingTimeInterval(1)) > dayStart

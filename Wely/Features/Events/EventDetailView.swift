@@ -130,6 +130,14 @@ struct EventDetailView: View {
             Text(event.title).font(.wely.title2.bold())
             HStack(spacing: 8) {
                 PersonChip(userId: event.organizerId, prefix: "Organisé par")
+                if event.kind == .surprise {
+                    Text("🤫 Surprise")
+                        .font(.wely.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Theme.gradient, in: Capsule())
+                        .accessibilityLabel("Surprise : la personne fêtée ne voit pas cet événement")
+                }
                 if let visibility = event.visibility, visibility != .unknown {
                     Label(visibility.label, systemImage: visibility.systemImage)
                         .font(.wely.caption.weight(.medium))
@@ -172,7 +180,7 @@ struct EventDetailView: View {
                 AsyncButton("Quitter", role: .destructive) { try await toggle() }
                     .buttonStyle(.welySecondary)
             }
-        } else if !event.isPast {
+        } else if !event.isPast, event.isJoinable {
             AsyncButton { try await toggle() } label: {
                 Label("Rejoindre", systemImage: "person.badge.plus")
                     .font(.wely.headline)
@@ -186,6 +194,8 @@ struct EventDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             if event.isOpenPoll {
                 InfoRow(systemImage: "calendar.badge.clock", title: "La date n'est pas encore fixée", subtitle: "Votez pour vos créneaux ci-dessous")
+            } else if event.allDay {
+                InfoRow(systemImage: "calendar", title: AllDay.label(event.startDate, event.endDate), subtitle: nil)
             } else {
                 InfoRow(systemImage: "calendar", title: Date.eventWhen(event.startDate, event.endDate),
                         subtitle: Calendar.wely.isDateInToday(event.startDate) ? "C'est aujourd'hui" : nil)
@@ -615,14 +625,22 @@ private struct EventEditSheet: View {
         _coordinates = State(initialValue: event.coordinates)
         _details = State(initialValue: event.description)
         _visibility = State(initialValue: event.visibility ?? .friends)
-        _start = State(initialValue: event.startDate)
-        _end = State(initialValue: event.endDate)
+        // An all-day event is edited by its days, read in UTC.
+        _start = State(initialValue: event.allDay ? AllDay.localDay(of: event.startDate, calendar: .wely) : event.startDate)
+        _end = State(initialValue: event.allDay ? AllDay.localDay(of: event.endDate.addingTimeInterval(-86_400), calendar: .wely) : event.endDate)
     }
 
-    private var datesChanged: Bool { start != event.startDate || end != event.endDate }
+    /// What the dates send: whole UTC days for an all-day event.
+    private var range: (start: Date, end: Date) {
+        event.allDay ? AllDay.range(from: start, through: end, calendar: .wely) : (start, end)
+    }
+
+    private var datesChanged: Bool { range.start != event.startDate || range.end != event.endDate }
 
     private var isValid: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && !location.trimmingCharacters(in: .whitespaces).isEmpty && end > start
+        !title.trimmingCharacters(in: .whitespaces).isEmpty
+            && (event.kind == .surprise || !location.trimmingCharacters(in: .whitespaces).isEmpty)
+            && (event.allDay || end > start)
     }
 
     var body: some View {
@@ -637,6 +655,9 @@ private struct EventEditSheet: View {
                         Label("La date se décide par le sondage : fixez un créneau depuis l'événement.", systemImage: "chart.bar.doc.horizontal")
                             .font(.wely.subheadline)
                             .foregroundStyle(.secondary)
+                    } else if event.allDay {
+                        DatePicker("Du", selection: $start, displayedComponents: .date)
+                        DatePicker("Au", selection: $end, in: start..., displayedComponents: .date)
                     } else {
                         DatePicker("Début", selection: $start, in: Date.now...)
                         DatePicker("Fin", selection: $end, in: start...)
@@ -657,7 +678,7 @@ private struct EventEditSheet: View {
                 } header: {
                     Text("Où")
                 } footer: {
-                    if location.trimmingCharacters(in: .whitespaces).isEmpty { Text("Le lieu est obligatoire.") }
+                    if event.kind != .surprise, location.trimmingCharacters(in: .whitespaces).isEmpty { Text("Le lieu est obligatoire.") }
                 }
 
                 Section("Description") {
@@ -686,7 +707,7 @@ private struct EventEditSheet: View {
             }
             .onChange(of: start) { old, new in end = end.addingTimeInterval(new.timeIntervalSince(old)) }
             .task(id: [start, end]) {
-                guard datesChanged else { conflicts = []; return }
+                guard datesChanged, !event.allDay else { conflicts = []; return }
                 try? await Task.sleep(for: .milliseconds(300))
                 conflicts = (try? await app.events.conflicts(start: start, end: end, excluding: event.id)) ?? []
             }
@@ -702,7 +723,7 @@ private struct EventEditSheet: View {
             visibility: event.communityId == nil ? visibility : nil
         ))
         if !event.isOpenPoll, datesChanged {
-            updated = try await app.events.reschedule(event.id, start: start, end: end)
+            updated = try await app.events.reschedule(event.id, start: range.start, end: range.end)
         }
         onSaved(updated)
         dismiss()

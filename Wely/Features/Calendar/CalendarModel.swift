@@ -11,6 +11,8 @@ final class CalendarModel {
     }
 
     private(set) var entries: [CalendarEntry] = []
+    /// The birthdays of the shown grid, by « YYYY-MM-DD ».
+    private(set) var birthdays: [String: [BirthdayOccurrence]] = [:]
     private(set) var phase: Phase = .loading
     var displayedMonth: Date
     var selectedDay: Date
@@ -33,6 +35,22 @@ final class CalendarModel {
 
     func entries(on day: Date) -> [CalendarEntry] {
         entries.filter { $0.occurs(on: day, calendar: calendar) }
+    }
+
+    var selectedBirthdays: [BirthdayOccurrence] { birthdays(on: selectedDay) }
+
+    /// The user's own first, then friends from the closest.
+    func birthdays(on day: Date) -> [BirthdayOccurrence] {
+        (birthdays[DayString.string(from: day, calendar: calendar)] ?? []).sorted { ($0.style, $1.name) > ($1.style, $0.name) }
+    }
+
+    /// The birthdays of the grid on screen; a failure keeps the calendar without them.
+    func loadBirthdays() async {
+        let days = grid.days
+        guard let first = days.first?.date, let last = days.last?.date,
+              let end = calendar.date(byAdding: .day, value: 1, to: last) else { return }
+        guard let list = try? await events.birthdays(from: first, to: end) else { return }
+        birthdays = Dictionary(grouping: list, by: \.date)
     }
 
     /// Loads the user's events and open polls; a failing poll list leaves the fixed events
@@ -61,6 +79,11 @@ final class CalendarModel {
         let today = calendar.startOfDay(for: .now)
         displayedMonth = calendar.dateInterval(of: .month, for: today)!.start
         selectedDay = today
+    }
+
+    /// Selects a « YYYY-MM-DD » day from a link.
+    func select(dayString: String) {
+        if let day = DayString.date(from: dayString, calendar: calendar) { select(day) }
     }
 
     func select(_ day: Date) {

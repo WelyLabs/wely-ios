@@ -14,7 +14,7 @@ enum Route: Hashable {
     case notifications
     case preferences
 
-    /// Nil for a destination that is not a screen of a stack (a call).
+    /// Nil for a destination that is not a screen of a stack (a call, a calendar day).
     init?(_ destination: AppDestination) {
         switch destination {
         case .event(let id): self = .eventId(id)
@@ -23,7 +23,7 @@ enum Route: Hashable {
         case .community(let id): self = .community(id)
         case .invitation(let token): self = .invitation(token)
         case .preferences: self = .preferences
-        case .call: return nil
+        case .call, .calendarDay, .surprise: return nil
         }
     }
 }

@@ -5,12 +5,39 @@ struct EventFormView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
+    /// What a form opens with when something else prepared the event (a birthday surprise).
+    struct Draft: Hashable, Identifiable {
+        var kind: EventKind = .standard
+        var honoreeId: String?
+        var honoreeName: String?
+        var title = ""
+        var details = ""
+        var start: Date
+        var end: Date
+        var visibility: Visibility = .friends
+
+        var id: String { "\(kind.rawValue)#\(honoreeId ?? "")#\(start.timeIntervalSince1970)" }
+
+        /// The surprise for a friend's birthday: 19:00 to 23:00 that day, place left to choose.
+        static func surprise(for honoreeId: String, name: String, on day: Date, calendar: Calendar = .wely) -> Draft {
+            let start = calendar.date(bySettingHour: 19, minute: 0, second: 0, of: day) ?? day
+            let end = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: day) ?? start.addingTimeInterval(4 * 3600)
+            return Draft(kind: .surprise, honoreeId: honoreeId, honoreeName: name, title: "Anniversaire surprise de \(name) 🎉",
+                         details: "🤫 \(name) ne voit pas cet événement. Invite ses amis et choisis le lieu.",
+                         start: start, end: end, visibility: .friends)
+        }
+    }
+
     /// Publishing in a community: set by the community screen, not chosen here.
     var communityId: String?
     let onCreated: (FeedEvent) -> Void
+    private let kind: EventKind
+    private let honoreeId: String?
+    private let honoreeName: String?
 
     @State private var title = ""
     @State private var isPoll = false
+    @State private var allDay = false
     @State private var start: Date
     @State private var end: Date
     @State private var slots: [EventCreateRequest.Slot]
@@ -18,6 +45,8 @@ struct EventFormView: View {
     @State private var coordinates: Coordinates?
     @State private var details = ""
     @State private var visibility: Visibility = .friends
+    /// The surprise someone already prepares, after a 409.
+    @State private var existingSurprise: String?
     @State private var publishIn: String?
     @State private var myCommunities: [Community] = []
     @State private var conflicts: [FeedEvent] = []
@@ -27,6 +56,9 @@ struct EventFormView: View {
     init(day: Date = .now, communityId: String? = nil, onCreated: @escaping (FeedEvent) -> Void) {
         self.communityId = communityId
         self.onCreated = onCreated
+        kind = .standard
+        honoreeId = nil
+        honoreeName = nil
         let calendar = Calendar.wely
         // The chosen day at 19:00, or the next round hour when that is already past.
         var start = calendar.date(bySettingHour: 19, minute: 0, second: 0, of: day) ?? day
@@ -40,8 +72,33 @@ struct EventFormView: View {
         _publishIn = State(initialValue: communityId)
     }
 
+    /// A pre-filled form: one press on « Créer » is enough.
+    init(draft: Draft, onCreated: @escaping (FeedEvent) -> Void) {
+        communityId = nil
+        self.onCreated = onCreated
+        kind = draft.kind
+        honoreeId = draft.honoreeId
+        honoreeName = draft.honoreeName
+        _title = State(initialValue: draft.title)
+        _details = State(initialValue: draft.details)
+        _start = State(initialValue: draft.start)
+        _end = State(initialValue: draft.end)
+        _visibility = State(initialValue: draft.visibility)
+        _slots = State(initialValue: [0, 1].map { offset in
+            let s = draft.start.addingTimeInterval(Double(offset) * 86_400)
+            return .init(start: s, end: s.addingTimeInterval(draft.end.timeIntervalSince(draft.start)))
+        })
+        _publishIn = State(initialValue: nil)
+    }
+
+    private var isSurprise: Bool { kind == .surprise }
+    /// A surprise may go without a place for now: friends choose it together.
+    private var needsLocation: Bool { !isSurprise }
+
     private var isValid: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && !location.trimmingCharacters(in: .whitespaces).isEmpty && (isPoll ? (2...5).contains(slots.count) && slots.allSatisfy { $0.end > $0.start } : end > start)
+        !title.trimmingCharacters(in: .whitespaces).isEmpty
+            && (!needsLocation || !location.trimmingCharacters(in: .whitespaces).isEmpty)
+            && (isPoll ? (2...5).contains(slots.count) && slots.allSatisfy { $0.end > $0.start } : allDay || end > start)
     }
 
     var body: some View {
@@ -52,12 +109,22 @@ struct EventFormView: View {
                         .font(.wely.headline)
                 }
 
-                Section {
-                    Picker("Date", selection: $isPoll) {
-                        Text("Date fixe").tag(false)
-                        Text("Sondage de dates").tag(true)
+                if isSurprise {
+                    Section {
+                        Label("🤫 Surprise : \(honoreeName ?? "la personne fêtée") ne verra pas cet événement.", systemImage: "eye.slash")
+                            .font(.wely.subheadline)
+                            .foregroundStyle(Theme.ink2)
                     }
-                    .pickerStyle(.segmented)
+                }
+
+                Section {
+                    if !isSurprise {
+                        Picker("Date", selection: $isPoll) {
+                            Text("Date fixe").tag(false)
+                            Text("Sondage de dates").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                    }
 
                     if isPoll {
                         // By position: editing a slot changes its value, so it cannot be its own id.
@@ -78,10 +145,18 @@ struct EventFormView: View {
                             }
                         }
                     } else {
-                        DatePicker("Début", selection: $start)
-                        DatePicker("Fin", selection: $end, in: start...)
-                        Button { findingSlot = true } label: {
-                            Label("Trouver un créneau avec des amis", systemImage: "person.2.badge.gearshape")
+                        Toggle("Toute la journée", isOn: $allDay.animation())
+                        if allDay {
+                            DatePicker("Du", selection: $start, displayedComponents: .date)
+                            DatePicker("Au", selection: $end, in: start..., displayedComponents: .date)
+                        } else {
+                            DatePicker("Début", selection: $start)
+                            DatePicker("Fin", selection: $end, in: start...)
+                            if !isSurprise {
+                                Button { findingSlot = true } label: {
+                                    Label("Trouver un créneau avec des amis", systemImage: "person.2.badge.gearshape")
+                                }
+                            }
                         }
                     }
                 } footer: {
@@ -98,7 +173,9 @@ struct EventFormView: View {
                 } header: {
                     Text("Où")
                 } footer: {
-                    if location.trimmingCharacters(in: .whitespaces).isEmpty {
+                    if isSurprise {
+                        Text("Facultatif : vous pourrez le choisir plus tard avec les autres.")
+                    } else if location.trimmingCharacters(in: .whitespaces).isEmpty {
                         Text("Le lieu est obligatoire : une adresse, un bar, « chez moi »…")
                     }
                 }
@@ -127,7 +204,7 @@ struct EventFormView: View {
                 }
             }
             .environment(\.locale, .wely)
-            .navigationTitle("Nouvel événement")
+            .navigationTitle(isSurprise ? "Anniversaire surprise" : "Nouvel événement")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Annuler") { dismiss() } }
@@ -139,7 +216,7 @@ struct EventFormView: View {
             .onChange(of: start) { old, new in end = end.addingTimeInterval(new.timeIntervalSince(old)) }
             .task { myCommunities = (try? await app.social.myCommunities()) ?? [] }
             .task(id: [start, end]) {
-                guard !isPoll else { return }
+                guard !isPoll, !allDay else { conflicts = []; return }
                 try? await Task.sleep(for: .milliseconds(300))
                 conflicts = (try? await app.events.conflicts(start: start, end: end)) ?? []
             }
@@ -151,6 +228,13 @@ struct EventFormView: View {
                 }
             }
             .errorAlert($error)
+            .alert("Une surprise se prépare déjà", isPresented: Binding(get: { existingSurprise != nil }, set: { if !$0 { existingSurprise = nil } })) {
+                Button("Rejoindre la surprise") { Task { await joinExisting() } }
+                Button("Voir la surprise") { openExisting() }
+                Button("Annuler", role: .cancel) {}
+            } message: {
+                Text("Un ami organise déjà l'anniversaire de \(honoreeName ?? "cette personne"). Rejoins-le, \(honoreeName ?? "la personne fêtée") n'en saura rien.")
+            }
         }
     }
 
@@ -163,20 +247,51 @@ struct EventFormView: View {
     }
 
     private func create() async throws {
+        let wholeDays = !isPoll && allDay
+        let days = AllDay.range(from: start, through: end, calendar: .wely)
         let request = EventCreateRequest(
             title: title.trimmingCharacters(in: .whitespaces),
-            startDate: isPoll ? slots[0].start : start,
-            endDate: isPoll ? slots[0].end : end,
+            startDate: isPoll ? slots[0].start : (wholeDays ? days.start : start),
+            endDate: isPoll ? slots[0].end : (wholeDays ? days.end : end),
             location: location.trimmingCharacters(in: .whitespaces),
             coordinates: coordinates,
             description: details.isEmpty ? nil : details,
             visibility: publishIn == nil ? visibility : nil,
             candidateSlots: isPoll ? slots : nil,
-            communityId: publishIn
+            communityId: publishIn,
+            allDay: wholeDays ? true : nil,
+            kind: kind == .standard ? nil : kind,
+            honoreeId: honoreeId
         )
-        let created = try await app.events.create(request)
-        onCreated(created)
+        do {
+            let created = try await app.events.create(request)
+            onCreated(created)
+            dismiss()
+        } catch let error as APIError where isSurprise && error.status == 409 && error.eventId != nil {
+            existingSurprise = error.eventId
+        }
+    }
+
+    /// Joins the surprise a friend already created, then shows it.
+    private func joinExisting() async {
+        guard let id = existingSurprise else { return }
+        do {
+            let participants = try? await app.events.participants(id)
+            if participants?.participantIds.contains(app.people.myId ?? "") != true {
+                _ = try await app.events.toggleSubscription(id)
+            }
+            app.eventsChanged()
+            openExisting()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func openExisting() {
+        guard let id = existingSurprise else { return }
+        existingSurprise = nil
         dismiss()
+        app.open(.event(id))
     }
 }
 

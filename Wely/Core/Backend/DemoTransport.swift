@@ -48,6 +48,10 @@ struct DemoStore {
     var expenses: [String: [Expense]] = [:]
     var preferences = UserPreferences(theme: .system)
     var about = ProfileAbout(bio: "Toujours partant pour une sortie 🚲", interests: ["Escalade", "Jeux de société", "Cinéma"])
+    /// Birthdays by user, in days from today: the user's own is today, to show the celebration.
+    var birthdays: [String: MonthDay] = [:]
+    var myBirthYear = 1996
+    var notificationPreferences = NotificationPreferences(calls: true, messages: true, events: true, friends: true, birthdays: true)
 
     init() {
         events = [
@@ -72,12 +76,19 @@ struct DemoStore {
             event("demo-9", "Pique-nique au Parc de la Tête d'Or", by: "camille", day: 5, 12, 15, "Parc de la Tête d'Or", lat: 45.7772, lon: 4.8553,
                   visibility: .public),
             event("demo-10", "Week-end à Annecy", by: "lea", day: -20, 9, 18, "Annecy", lat: 45.8992, lon: 6.1294),
+            FeedEvent(id: "demo-11", title: "Fête des Lumières", organizerId: "lea", startDate: AllDay.start(of: at(7, 12), calendar: calendar),
+                      endDate: AllDay.start(of: at(9, 12), calendar: calendar), location: "Presqu'île, Lyon",
+                      description: "Deux soirs de balade entre les installations.", allDay: true),
+            FeedEvent(id: "demo-surprise", title: "Anniversaire surprise de Hugo 🎉", organizerId: "ines", startDate: at(9, 19), endDate: at(9, 23),
+                      description: "🤫 Hugo ne voit pas cet événement. Invite ses amis et choisis le lieu.", kind: .surprise, honoreeId: "hugo"),
         ]
-        joined = ["demo-1", "demo-2", "demo-3", "demo-4", "demo-5", "demo-6", "demo-10"]
+        joined = ["demo-1", "demo-2", "demo-3", "demo-4", "demo-5", "demo-6", "demo-10", "demo-11"]
+        birthdays = [Self.me: 0, "lucas": 2, "lea": 5, "hugo": 9, "ines": 16, "sarah": 23].mapValues(monthDay)
         participants = [
             "demo-1": [Self.me, "lea", "hugo", "lucas"], "demo-2": ["lea", Self.me, "ines"], "demo-3": ["hugo", Self.me, "lea", "sarah"],
             "demo-4": ["sarah", Self.me, "nathan"], "demo-5": [Self.me, "lea", "hugo", "ines"], "demo-6": ["ines", Self.me],
             "demo-7": ["lucas", "nathan"], "demo-8": ["nathan", "hugo"], "demo-9": ["camille"], "demo-10": ["lea", Self.me, "hugo"],
+            "demo-11": ["lea", Self.me], "demo-surprise": ["ines", "lea"],
         ]
         communities = [
             Community(communityId: "club-auto", name: "Club Auto Rétro Lyon", description: "Passionnés de voitures anciennes : rallyes, expos et balades.",
@@ -106,6 +117,13 @@ struct DemoStore {
                             link: "/chat/conv-demo-1", groupKey: "msg-conv-demo-1", count: 2, actorId: "lucas", createdAt: now.addingTimeInterval(-2400), readAt: nil),
             AppNotification(id: "n3", type: "EVENT_DATE_FIXED", category: "EVENTS", title: "Brunch du dimanche : date fixée", body: "Hugo a choisi dimanche 11:00.",
                             link: "/event/demo-3", groupKey: nil, count: 1, actorId: "hugo", createdAt: now.addingTimeInterval(-90_000), readAt: now),
+            AppNotification(id: "n4", type: "BIRTHDAY_SURPRISE_PROPOSAL", category: "BIRTHDAYS", title: "🤫 L'anniversaire de Léa approche",
+                            body: "Dans 5 jours. Organise une surprise : tout est déjà prêt, il ne reste qu'à créer.",
+                            link: "/calendar?surpriseFor=lea&date=\(DayString.string(from: at(5, 12), calendar: calendar))", groupKey: "birthday-lea",
+                            count: 1, actorId: "lea", createdAt: now.addingTimeInterval(-1200), readAt: nil),
+            AppNotification(id: "n5", type: "BIRTHDAY_SURPRISE_CREATED", category: "BIRTHDAYS", title: "🤫 Inès organise l'anniversaire surprise de Hugo",
+                            body: "Rejoins la fête, Hugo ne voit rien.", link: "/event/demo-surprise", groupKey: "birthday-hugo",
+                            count: 1, actorId: "ines", createdAt: now.addingTimeInterval(-7200), readAt: nil),
         ]
         expenses = [
             "demo-10": [
@@ -129,6 +147,14 @@ struct DemoStore {
                 people[Self.me] = (update.userName, update.firstName, update.lastName, people[Self.me]!.tag)
             }
             return ok(profile(Self.me))
+        case ("PUT", "user-service", ["profile", "registration"]):
+            guard let request = decode(RegistrationRequest.self, body), let day = DayString.date(from: request.birthDate, calendar: calendar) else {
+                return (400, json(["code": "USR-VAL-001"]))
+            }
+            let parts = calendar.dateComponents([.year, .month, .day], from: day)
+            myBirthYear = parts.year ?? myBirthYear
+            birthdays[Self.me] = MonthDay(month: parts.month ?? 1, day: parts.day ?? 1)
+            return ok(profile(Self.me))
         case ("GET", "user-service", ["profile", "preferences"]): return ok(preferences)
         case ("PUT", "user-service", ["profile", "preferences"]):
             if let update = decode(UserPreferences.self, body) { preferences = update }
@@ -144,7 +170,8 @@ struct DemoStore {
         case ("GET", "user-service", let r) where r.count == 3 && r[0] == "users":
             let id = r[1], person = people[id]
             return ok(FriendProfile(id: id, userName: person?.name ?? id, hashtag: person?.tag ?? "", firstName: person?.first, lastName: person?.last,
-                                    joinedDate: "2025-03-01", bio: id == "lea" ? "Grimpeuse du dimanche 🧗" : nil, interests: id == "lea" ? ["Escalade", "Voyages"] : []))
+                                    joinedDate: "2025-03-01", bio: id == "lea" ? "Grimpeuse du dimanche 🧗" : nil, interests: id == "lea" ? ["Escalade", "Voyages"] : [],
+                                    birthday: friends[id] != nil ? birthdays[id] : nil))
         case ("POST", "user-service", ["avatars"]): return ok([String: String]())
 
         // social
@@ -221,6 +248,9 @@ struct DemoStore {
         case ("GET", "events-service", ["events", "me", "feed"]):
             return ok(events.filter { !$0.isPast && $0.visibility != .private }.sorted { $0.startDate < $1.startDate })
         case ("GET", "events-service", ["events", "me", "polls"]): return ok(events.filter(\.isOpenPoll))
+        case ("GET", "events-service", ["events", "me", "birthdays"]):
+            guard let from = query["from"].flatMap(WireDate.parse), let to = query["to"].flatMap(WireDate.parse) else { return (400, Data()) }
+            return ok(birthdayOccurrences(from: from, to: to))
         case ("GET", "events-service", ["events", "me", "summary"]): return ok(summary())
         case ("POST", "events-service", ["events", "me", "conflicts"]):
             guard let request = decode(ConflictsRequest.self, body) else { return ok([FeedEvent]()) }
@@ -240,11 +270,14 @@ struct DemoStore {
                 FriendCalendarEntry(start: $0.startDate, end: $0.endDate, eventId: $0.id, title: $0.title, location: $0.location, description: nil)
             })
         case ("POST", "events-service", ["events"]):
-            // As wely-events' EventRequest: a title and a location are required.
+            // As wely-events' EventRequest: a title is required, and a location unless it is a surprise.
             guard let request = decode(EventCreateRequest.self, body),
                   !request.title.trimmingCharacters(in: .whitespaces).isEmpty,
-                  !request.location.trimmingCharacters(in: .whitespaces).isEmpty else {
+                  request.kind == .surprise || !request.location.trimmingCharacters(in: .whitespaces).isEmpty else {
                 return (400, json(["message": "Location is required"]))
+            }
+            if request.kind == .surprise, let existing = surprise(for: request.honoreeId ?? "", around: request.startDate) {
+                return (409, json(["code": "EVT-BUS-030", "eventId": existing.id]))
             }
             let id = "demo-\(UUID().uuidString.prefix(6))"
             let poll = request.candidateSlots.map { slots in
@@ -252,7 +285,8 @@ struct DemoStore {
             }
             events.append(FeedEvent(id: id, title: request.title, organizerId: Self.me, startDate: request.startDate, endDate: request.endDate,
                                     location: request.location, coordinates: request.coordinates, description: request.description ?? "",
-                                    visibility: request.communityId != nil ? .community : request.visibility, poll: poll, communityId: request.communityId))
+                                    visibility: request.communityId != nil ? .community : request.visibility, poll: poll, communityId: request.communityId,
+                                    allDay: request.allDay ?? false, kind: request.kind ?? .standard, honoreeId: request.honoreeId))
             joined.insert(id)
             participants[id] = [Self.me]
             return ok(events.last!)
@@ -373,8 +407,10 @@ struct DemoStore {
         case ("POST", "notifications-service", ["notifications", "read"]):
             notifications = notifications.map { var n = $0; n.readAt = n.readAt ?? now; return n }
             return (204, Data())
-        case ("GET", "notifications-service", ["preferences"]): return ok(NotificationPreferences(calls: true, messages: true, events: true, friends: true))
-        case ("PUT", "notifications-service", ["preferences"]): return (204, Data())
+        case ("GET", "notifications-service", ["preferences"]): return ok(notificationPreferences)
+        case ("PUT", "notifications-service", ["preferences"]):
+            if let value = decode(NotificationPreferences.self, body) { notificationPreferences = value }
+            return (204, Data())
 
         default:
             return (404, json(["message": "demo: \(method) \(path)"]))
@@ -398,7 +434,37 @@ struct DemoStore {
 
     private func profile(_ id: String) -> UserProfile {
         let p = people[id]!
-        return UserProfile(id: id, userName: p.name, email: "\(p.name)@example.com", firstName: p.first, lastName: p.last, hashtag: p.tag, joinedDate: "2025-03-01")
+        let birthDate = birthdays[id].map { String(format: "%04d-%02d-%02d", myBirthYear, $0.month, $0.day) }
+        return UserProfile(id: id, userName: p.name, email: "\(p.name)@example.com", firstName: p.first, lastName: p.last, hashtag: p.tag,
+                           joinedDate: "2025-03-01", birthDate: birthDate, registrationCompleted: true)
+    }
+
+    private func monthDay(_ days: Int) -> MonthDay {
+        let parts = calendar.dateComponents([.month, .day], from: at(days, 12))
+        return MonthDay(month: parts.month ?? 1, day: parts.day ?? 1)
+    }
+
+    /// The surprise prepared for someone within 60 days of a date, as wely-events dedupes them.
+    private func surprise(for honoreeId: String, around date: Date) -> FeedEvent? {
+        events.first { $0.kind == .surprise && $0.honoreeId == honoreeId && abs($0.startDate.timeIntervalSince(date)) < 60 * 86_400 }
+    }
+
+    /// Mine and my friends' birthdays falling in the range, as `/events/me/birthdays` answers.
+    private func birthdayOccurrences(from: Date, to: Date) -> [BirthdayOccurrence] {
+        let years = calendar.component(.year, from: from)...calendar.component(.year, from: to)
+        return birthdays.flatMap { id, birthday -> [BirthdayOccurrence] in
+            let mine = id == Self.me
+            guard mine || friends[id] != nil else { return [] }
+            return years.compactMap { year in
+                guard let day = calendar.date(from: DateComponents(year: year, month: birthday.month, day: birthday.day)), day >= from, day < to else { return nil }
+                let closeness = mine ? nil : friends[id]
+                let existing = mine ? nil : surprise(for: id, around: day)
+                return BirthdayOccurrence(userId: id, name: people[id]!.first, date: DayString.string(from: day, calendar: calendar), mine: mine,
+                                          closeness: closeness, canOrganize: !mine && existing == nil && (closeness ?? .friend) >= .close,
+                                          surprise: existing.map { .init(eventId: $0.id, organizerId: $0.organizerId, joined: joined.contains($0.id)) })
+            }
+        }
+        .sorted { $0.date < $1.date }
     }
 
     private func node(_ id: String) -> UserNode {

@@ -10,6 +10,13 @@ struct EventService {
     func subscribed() async throws -> [FeedEvent] { try await list("\(base)/me/subscribed") }
     func feed() async throws -> [FeedEvent] { try await list("\(base)/me/feed") }
     func myPolls() async throws -> [FeedEvent] { try await list("\(base)/me/polls") }
+    /// The user's and their friends' birthdays between two instants (400 days at most).
+    func birthdays(from: Date, to: Date) async throws -> [BirthdayOccurrence] {
+        let lenient: [Lenient<BirthdayOccurrence>] = try await api.get("\(base)/me/birthdays", query: [
+            "from": from.ISO8601Format(), "to": to.ISO8601Format(),
+        ])
+        return lenient.compactMap(\.value)
+    }
     func community(_ communityId: String) async throws -> [FeedEvent] { try await list("\(base)/community/\(communityId)") }
 
     func map(south: Double, west: Double, north: Double, east: Double) async throws -> [FeedEvent] {

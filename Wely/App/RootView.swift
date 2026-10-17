@@ -65,8 +65,15 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardShown = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardShown = false }
         .overlay(alignment: .top) { NotificationBanner() }
-        .task {
-            // Once the first screen settled, not over the sign-in transition.
+        // Over the tabs but under the lock: no way around it, and no reading it without Face ID.
+        .overlay {
+            let steps = SignupStep.pending(for: app.people.me)
+            if !steps.isEmpty { SignupCompletionView(steps: steps) }
+        }
+        .animation(.default, value: SignupStep.pending(for: app.people.me).isEmpty)
+        .task(id: isSettled) {
+            // Once the first screen settled and the signup is complete, not over either.
+            guard isSettled else { return }
             try? await Task.sleep(for: .seconds(1))
             if app.lock.shouldOffer { offeringLock = true }
         }
@@ -83,6 +90,9 @@ struct MainTabView: View {
         // Above the lock: a call answered from the lock screen shows without Face ID.
         .overlay { CallOverlay() }
     }
+
+    /// Who the user is is known and nothing is left to fill in.
+    private var isSettled: Bool { app.people.me != nil && SignupStep.pending(for: app.people.me).isEmpty }
 
     @ViewBuilder
     private func screen(for tab: AppTab) -> some View {

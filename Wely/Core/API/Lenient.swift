@@ -36,6 +36,20 @@ struct DefaultFalse: Codable, Hashable, Sendable {
     }
 }
 
+/// A flag that may be missing or null on the wire: true then.
+@propertyWrapper
+struct DefaultTrue: Codable, Hashable, Sendable {
+    var wrappedValue: Bool
+    init(wrappedValue: Bool = true) { self.wrappedValue = wrappedValue }
+    init(from decoder: Decoder) throws {
+        wrappedValue = (try? decoder.singleValueContainer().decode(Bool.self)) ?? true
+    }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(wrappedValue)
+    }
+}
+
 /// A string the backend sends as a string or a number (a user's `hashtag`); empty when missing.
 @propertyWrapper
 struct LossyString: Codable, Hashable, Sendable {
@@ -63,6 +77,9 @@ extension KeyedDecodingContainer {
     }
     func decode(_ type: DefaultFalse.Type, forKey key: Key) throws -> DefaultFalse {
         try decodeIfPresent(type, forKey: key) ?? DefaultFalse()
+    }
+    func decode(_ type: DefaultTrue.Type, forKey key: Key) throws -> DefaultTrue {
+        try decodeIfPresent(type, forKey: key) ?? DefaultTrue()
     }
     func decode(_ type: LossyString.Type, forKey key: Key) throws -> LossyString {
         try decodeIfPresent(type, forKey: key) ?? LossyString()

@@ -24,6 +24,9 @@ struct AppNotification: Codable, Hashable, Identifiable, Sendable {
         case "EVENT_DATE_FIXED", "EVENT_MOVED": "calendar"
         case "FRIEND_REQUEST": "person.badge.plus"
         case "FRIEND_ACCEPTED": "person.crop.circle.badge.checkmark"
+        case "BIRTHDAY_TODAY": "birthday.cake.fill"
+        case "FRIEND_BIRTHDAY": "gift.fill"
+        case "BIRTHDAY_SURPRISE_PROPOSAL", "BIRTHDAY_SURPRISE_CREATED": "party.popper.fill"
         default: "bell.fill"
         }
     }
@@ -37,6 +40,8 @@ struct NotificationPreferences: Codable, Hashable, Sendable {
     var messages: Bool
     var events: Bool
     var friends: Bool
+    /// Missing from a backend that predates it: on, as its default.
+    @DefaultTrue var birthdays: Bool = true
 }
 
 struct NotificationReadRequest: Codable, Sendable {
@@ -76,12 +81,24 @@ enum AppDestination: Hashable, Sendable {
     case invitation(String)
     case preferences
     case call(String)
+    /// A day of the calendar, « YYYY-MM-DD ».
+    case calendarDay(String)
+    /// The pre-filled surprise for a friend's birthday on that day.
+    case surprise(honoreeId: String, date: String)
 
     /// Reads wely-web's paths, so notifications and shared links land on the same screen.
     init?(webPath: String) {
         let path = webPath.split(whereSeparator: { $0 == "?" || $0 == "#" }).first.map(String.init) ?? webPath
         let parts = path.split(separator: "/").map(String.init)
+        let query = Self.query(of: webPath)
         switch (parts.first, parts.count) {
+        case ("calendar", 1):
+            guard let date = query["date"] else { return nil }
+            if let honoreeId = query["surpriseFor"], !honoreeId.isEmpty {
+                self = .surprise(honoreeId: honoreeId, date: date)
+            } else {
+                self = .calendarDay(date)
+            }
         case ("event", 2...): self = .event(parts.last!)
         case ("chat", 2): self = .conversation(parts[1])
         case ("friends", 2): self = .person(parts[1])
@@ -91,5 +108,10 @@ enum AppDestination: Hashable, Sendable {
         case ("call", 2): self = .call(parts[1])
         default: return nil
         }
+    }
+
+    private static func query(of webPath: String) -> [String: String] {
+        let items = URLComponents(string: webPath)?.queryItems ?? []
+        return Dictionary(items.compactMap { item in item.value.map { (item.name, $0) } }, uniquingKeysWith: { first, _ in first })
     }
 }

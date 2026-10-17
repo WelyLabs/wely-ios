@@ -76,6 +76,8 @@ struct PreferencesView: View {
                     PreferenceToggle(title: "Événements", detail: "Une date fixée ou un événement déplacé.", isOn: binding.events)
                     Divider()
                     PreferenceToggle(title: "Amis", detail: "Les demandes d'ami et celles acceptées.", isOn: binding.friends)
+                    Divider()
+                    PreferenceToggle(title: "Anniversaires", detail: "Les anniversaires de vos amis et les surprises qui se préparent.", isOn: binding.birthdays)
                 }
             } else if prefsError == nil {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 8)

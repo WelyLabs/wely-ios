@@ -24,10 +24,34 @@ struct CalendarModelTests {
         await model.load()
 
         #expect(model.phase == .loaded)
-        // 6 fixed events joined + 2 slots of the open poll.
-        #expect(model.entries.count == 8)
+        // 7 fixed events joined (one all-day) + 2 slots of the open poll.
+        #expect(model.entries.count == 9)
+        #expect(model.entries.filter(\.isAllDay).map(\.title) == ["Fête des Lumières"])
         #expect(model.selectedEntries.map(\.title) == ["Afterwork au Ninkasi"])
         #expect(model.selectedEntries.first?.mine == true)
+    }
+
+    @Test func loadsTheBirthdaysOfTheGrid() async {
+        let model = model()
+        model.goToToday()
+        await model.loadBirthdays()
+        let today = model.birthdays(on: model.selectedDay)
+        #expect(today.map(\.style) == [.mine])
+
+        // Hugo, in 9 days, already has a surprise: no second one.
+        model.select(calendar.date(byAdding: .day, value: 9, to: .now)!)
+        await model.loadBirthdays()
+        let hugo = model.selectedBirthdays.first { $0.userId == "hugo" }
+        #expect(hugo?.surprise?.eventId == "demo-surprise")
+        #expect(hugo?.canOrganize == false)
+        #expect(hugo?.style == .close)
+    }
+
+    @Test func aDayFromALinkIsSelected() {
+        let model = model()
+        model.select(dayString: "2026-12-24")
+        #expect(calendar.component(.month, from: model.displayedMonth) == 12)
+        #expect(calendar.component(.day, from: model.selectedDay) == 24)
     }
 
     @Test func aFailureIsReported() async {

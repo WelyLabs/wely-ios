@@ -67,6 +67,10 @@ struct PersonView: View {
                 Text("Amis depuis \(date.formatted(.dateTime.month(.wide).year().locale(.wely)))")
                     .font(.wely.caption).foregroundStyle(.secondary)
             }
+            if let birthday = profile?.birthday {
+                Text("🎂 Anniversaire le \(birthday.label)")
+                    .font(.wely.caption.weight(.medium)).foregroundStyle(Theme.ink2)
+            }
         }
     }
 

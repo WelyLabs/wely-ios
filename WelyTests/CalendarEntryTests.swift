@@ -45,6 +45,35 @@ struct CalendarEntryTests {
         #expect(!entry.occurs(on: date(16), calendar: calendar))
     }
 
+    @Test func anAllDayEventShowsOnItsUTCDaysInAnyTimeZone() throws {
+        let start = try Date("2026-03-12T00:00:00Z", strategy: .iso8601)
+        let event = FeedEvent(id: "a", title: "A", organizerId: "x", startDate: start, endDate: start.addingTimeInterval(86_400), allDay: true)
+        let entry = try #require(CalendarEntry.make(subscribed: [event], polls: [], myId: nil).first)
+        #expect(entry.isAllDay)
+        for zone in ["Europe/Paris", "America/Los_Angeles", "Pacific/Auckland"] {
+            var local = Calendar.wely
+            local.timeZone = TimeZone(identifier: zone)!
+            let day = { (d: Int) in local.date(from: DateComponents(year: 2026, month: 3, day: d, hour: 12))! }
+            #expect(!entry.occurs(on: day(11), calendar: local), "\(zone)")
+            #expect(entry.occurs(on: day(12), calendar: local), "\(zone)")
+            #expect(!entry.occurs(on: day(13), calendar: local), "\(zone)")
+        }
+    }
+
+    @Test func aSeveralDayAllDayEventCoversEachDay() throws {
+        let start = try Date("2026-03-12T00:00:00Z", strategy: .iso8601)
+        let event = FeedEvent(id: "w", title: "W", organizerId: "x", startDate: start, endDate: start.addingTimeInterval(3 * 86_400), allDay: true)
+        let entry = CalendarEntry(event: event, start: event.startDate, end: event.endDate, slotId: nil, mine: false)
+        let days = (10...16).filter { entry.occurs(on: calendar.date(from: DateComponents(year: 2026, month: 3, day: $0))!, calendar: calendar) }
+        #expect(days == [12, 13, 14])
+    }
+
+    @Test func birthdayEventsStayOutOfTheEntries() {
+        let birthday = FeedEvent(id: "b", title: "Anniversaire", organizerId: "lea", startDate: date(15), allDay: true, kind: .birthday)
+        let surprise = FeedEvent(id: "s", title: "Surprise", organizerId: "me", startDate: date(15, 19), kind: .surprise, honoreeId: "lea")
+        #expect(CalendarEntry.make(subscribed: [birthday, surprise], polls: [], myId: "me").map(\.id) == ["s"])
+    }
+
     @Test func monthGridStartsOnMondayInWholeWeeks() {
         // October 2026 starts on a Thursday: three September days lead.
         let grid = MonthGrid(containing: date(15), calendar: calendar)

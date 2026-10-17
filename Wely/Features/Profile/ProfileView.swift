@@ -221,9 +221,19 @@ private struct EditProfileView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var update: ProfileUpdate
+    @State private var birthDate: Date
+    private let savedBirthDate: String?
 
     init(profile: UserProfile) {
         _update = State(initialValue: ProfileUpdate(userName: profile.userName, firstName: profile.firstName ?? "", lastName: profile.lastName ?? ""))
+        savedBirthDate = profile.birthDate
+        _birthDate = State(initialValue: profile.birthDate.flatMap { DayString.date(from: $0, calendar: .wely) } ?? SignupAnswers.initial().birthDate)
+    }
+
+    /// The birth date to send, when it differs from the saved one.
+    private var changedBirthDate: String? {
+        let day = DayString.string(from: birthDate, calendar: .wely)
+        return day == savedBirthDate ? nil : day
     }
 
     var body: some View {
@@ -238,7 +248,11 @@ private struct EditProfileView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } footer: { Text("Votre tag public devient « pseudo#\(app.people.me?.hashtag ?? "") ».") }
+                Section {
+                    DatePicker("Date de naissance", selection: $birthDate, in: SignupAnswers.birthDateRange(), displayedComponents: .date)
+                } footer: { Text("Tes amis verront le jour et le mois, jamais ton année.") }
             }
+            .environment(\.locale, .wely)
             .navigationTitle("Modifier le profil")
             .navigationBarTitleDisplayMode(.inline)
             .errorAlert($failure)
@@ -246,7 +260,8 @@ private struct EditProfileView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Annuler") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     AsyncButton("Enregistrer") {
-                        let saved = try await app.users.update(update)
+                        var saved = try await app.users.update(update)
+                        if let day = changedBirthDate { saved = try await app.users.completeRegistration(birthDate: day) }
                         app.people.setMe(saved)
                         dismiss()
                     }
