@@ -33,6 +33,8 @@ struct Call: Codable, Hashable, Identifiable, Sendable {
     let id: String
     let conversationId: String
     let startedBy: String
+    /// The caller's name when the call started; absent from older calls.
+    let startedByName: String?
     let media: CallMedia
     let status: CallStatus
     /// Who it rings and who may join.

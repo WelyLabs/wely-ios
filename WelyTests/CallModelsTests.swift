@@ -13,16 +13,18 @@ struct CallModelsTests {
         #expect(event.call.media == .video)
         #expect(event.call.isLive)
         #expect(event.call.participants.first?.trackNames == [Call.audioTrack, Call.cameraTrack])
+        #expect(event.call.startedByName == nil)
     }
 
     @Test func decodesTheIceServersOfAJoin() throws {
         let join = try JSONDecoder.wely.decode(CallJoin.self, from: Data("""
-        {"call":{"id":"c1","conversationId":"conv1","startedBy":"u1","media":"AUDIO","status":"ENDED",
+        {"call":{"id":"c1","conversationId":"conv1","startedBy":"u1","startedByName":"Léa","media":"AUDIO","status":"ENDED",
          "memberIds":[],"participants":[]},
          "iceServers":[{"urls":["stun:stun.cloudflare.com:3478"],"username":null,"credential":null},
                        {"urls":["turn:turn.cloudflare.com:3478"],"username":"u","credential":"p"}]}
         """.utf8))
         #expect(!join.call.isLive)
+        #expect(join.call.startedByName == "Léa")
         #expect(join.iceServers.count == 2)
         #expect(join.iceServers[1].username == "u")
     }

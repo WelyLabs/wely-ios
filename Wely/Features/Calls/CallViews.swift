@@ -30,7 +30,7 @@ private struct IncomingCallView: View {
             Spacer()
             AvatarView(userId: call.startedBy, size: 112)
                 .overlay(Circle().stroke(.white.opacity(0.6), lineWidth: 3).padding(-6))
-            Text(app.people.person(call.startedBy).name).font(.wely.title.bold())
+            Text(callerName).font(.wely.title.bold())
             Label(call.media == .video ? "Appel vidéo Wely" : "Appel audio Wely",
                   systemImage: call.media == .video ? "video.fill" : "phone.fill")
                 .font(.wely.subheadline)
@@ -47,6 +47,11 @@ private struct IncomingCallView: View {
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.gradient.ignoresSafeArea())
+    }
+
+    /// Someone the app knows by name, else the name the call carries.
+    private var callerName: String {
+        app.people.directory[call.startedBy]?.name ?? call.startedByName ?? app.people.person(call.startedBy).name
     }
 }
 
