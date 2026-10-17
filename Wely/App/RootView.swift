@@ -37,6 +37,8 @@ struct MainTabView: View {
     @State private var keyboardShown = false
     @State private var offeringLock = false
 
+    private var locked: Bool { app.lock.isCovering }
+
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
@@ -57,6 +59,10 @@ struct MainTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        // Unlocking brings the app forward, out of a blur, as the lock screen lifts off it.
+        .scaleEffect(locked ? 0.94 : 1)
+        .blur(radius: locked ? 16 : 0)
+        .animation(AppLockOverlay.unlocking, value: locked)
         .background(Theme.canvas.ignoresSafeArea())
         .animation(.snappy(duration: 0.25), value: app.tabBarHiders == 0 && !keyboardShown)
         .onChange(of: app.selectedTab, initial: true) { _, tab in opened.insert(tab) }

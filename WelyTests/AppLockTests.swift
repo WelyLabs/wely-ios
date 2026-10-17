@@ -50,10 +50,12 @@ struct AppLockTests {
 
         lock.didEnterBackground()
         #expect(lock.isHidden)
+        #expect(lock.isCovering)
         now += 59
         lock.didBecomeActive()
         #expect(!lock.isLocked)
         #expect(!lock.isHidden)
+        #expect(!lock.isCovering)
 
         lock.didEnterBackground()
         now += 60

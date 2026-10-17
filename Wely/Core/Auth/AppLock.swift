@@ -74,6 +74,9 @@ final class AppLock {
         defaults.set(true, forKey: Self.offeredKey)
     }
 
+    /// The screens are behind the lock screen, locked or only out of sight.
+    var isCovering: Bool { isEnabled && (isLocked || isHidden) }
+
     var biometryName: String? { check.biometryName }
     var isAvailable: Bool { check.isAvailable }
 

@@ -7,8 +7,25 @@ struct AppLockOverlay: View {
 
     private var lock: AppLock { app.lock }
 
+    /// Shared with the screens behind, so both move as one.
+    static let unlocking = Animation.smooth(duration: 0.5)
+
     var body: some View {
-        if lock.isEnabled && (lock.isLocked || lock.isHidden) {
+        ZStack {
+            if lock.isCovering {
+                cover
+                    // Lifts off towards the user; appears at once, so the app switcher never
+                    // catches the screens behind half covered.
+                    .transition(.asymmetric(insertion: .identity, removal: .opacity.combined(with: .scale(scale: 1.12))))
+            }
+        }
+        // On covering, not on locking: Face ID's prompt hides the app, and either may end first.
+        .animation(Self.unlocking, value: lock.isCovering)
+        .sensoryFeedback(.success, trigger: lock.isLocked) { wasLocked, isLocked in wasLocked && !isLocked }
+    }
+
+    private var cover: some View {
+        Group {
             VStack(spacing: 20) {
                 Spacer()
                 Image("WelyLogo")
