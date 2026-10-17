@@ -75,5 +75,9 @@ struct NotificationService {
     func preferences() async throws -> NotificationPreferences { try await api.get("\(base)/preferences") }
     func savePreferences(_ preferences: NotificationPreferences) async throws { try await api.send("PUT", "\(base)/preferences", body: preferences) }
 
+    /// Registers this iPhone's APNs token for the signed-in user.
+    func registerDevice(_ device: ApnsDeviceRequest) async throws { try await api.send("PUT", "\(base)/push/apns-devices", body: device) }
+    func unregisterDevice(token: String) async throws { try await api.delete("\(base)/push/apns-devices", query: ["token": token]) }
+
     var streamURL: URL { api.url("\(base)/notifications/stream") }
 }

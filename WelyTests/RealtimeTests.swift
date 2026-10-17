@@ -97,7 +97,7 @@ struct LinkAndMoneyTests {
         #expect(AppDestination(webPath: "/friends/u1") == .person("u1"))
         #expect(AppDestination(webPath: "/communities/k1") == .community("k1"))
         #expect(AppDestination(webPath: "/communities/invite/tok") == .invitation("tok"))
-        #expect(AppDestination(webPath: "/call/x") == nil)
+        #expect(AppDestination(webPath: "/call/x") == .call("x"))
     }
 
     @Test func invitationTokenInALink() {

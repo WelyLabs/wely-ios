@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct WelyApp: App {
+    @UIApplicationDelegateAdaptor(WelyAppDelegate.self) private var appDelegate
     @State private var app: AppModel
 
     init() {

@@ -53,6 +53,7 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardShown = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardShown = false }
         .overlay(alignment: .top) { NotificationBanner() }
+        .overlay { CallOverlay() }
     }
 
     @ViewBuilder

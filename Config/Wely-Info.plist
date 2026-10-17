@@ -15,6 +15,16 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Asked when joining a call, and when turning the camera on in one. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Wely utilise le micro pendant les appels audio et vidéo.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Wely utilise la caméra pendant les appels vidéo.</string>
+	<!-- A call keeps going when the screen locks or another app comes to the front. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<!-- Outfit, wely-web's face (OFL-1.1, google/fonts), as one variable font. -->
 	<key>UIAppFonts</key>
 	<array>

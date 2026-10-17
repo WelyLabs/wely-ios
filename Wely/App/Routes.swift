@@ -14,7 +14,8 @@ enum Route: Hashable {
     case notifications
     case preferences
 
-    init(_ destination: AppDestination) {
+    /// Nil for a destination that is not a screen of a stack (a call).
+    init?(_ destination: AppDestination) {
         switch destination {
         case .event(let id): self = .eventId(id)
         case .conversation(let id): self = .conversation(id)
@@ -22,6 +23,7 @@ enum Route: Hashable {
         case .community(let id): self = .community(id)
         case .invitation(let token): self = .invitation(token)
         case .preferences: self = .preferences
+        case .call: return nil
         }
     }
 }
@@ -78,7 +80,7 @@ struct PendingDestinationHandler: ViewModifier {
     func body(content: Content) -> some View {
         content.onChange(of: app.pendingDestination, initial: true) { _, destination in
             guard let destination, app.selectedTab == tab else { return }
-            path.append(Route(destination))
+            if let route = Route(destination) { path.append(route) }
             app.pendingDestination = nil
         }
     }

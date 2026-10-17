@@ -8,4 +8,11 @@
 PRODUCT_BUNDLE_IDENTIFIER = com.welylabs.wely
 DEVELOPMENT_TEAM =
 
+// Push notifications need the APNs entitlement, which a free personal team cannot sign. With a
+// paid Apple Developer team, add to `Signing.local.xcconfig`:
+//
+//     CODE_SIGN_ENTITLEMENTS = Config/Wely.entitlements
+//
+// Without it, the app still tells the user of what arrives while it runs (DevicePush).
+
 #include? "Signing.local.xcconfig"

@@ -21,6 +21,8 @@ struct ChatView: View {
     @State private var loadError: String?
     @State private var error: String?
     @State private var viewingPhoto: URL?
+    /// A call going on in this conversation that I am not in.
+    @State private var liveCall: Call?
 
     private var myId: String? { app.people.myId }
     private var otherId: String? {
@@ -38,11 +40,24 @@ struct ChatView: View {
                 ProgressView()
             }
         }
+        .safeAreaInset(edge: .top) { if let liveCall, app.calls.call?.id != liveCall.id { joinBar(liveCall) } }
         .safeAreaInset(edge: .bottom) { if conversation != nil { composer } }
         .navigationBarTitleDisplayMode(.inline)
         .hidesWelyTabBar()
         .toolbar {
             ToolbarItem(placement: .principal) { titleView }
+            if let id = conversation?.id {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button { Task { await app.calls.start(conversationId: id, media: .audio) } } label: { Image(systemName: "phone") }
+                        .accessibilityLabel("Appel audio")
+                    Button { Task { await app.calls.start(conversationId: id, media: .video) } } label: { Image(systemName: "video") }
+                        .accessibilityLabel("Appel vidéo")
+                }
+            }
+        }
+        .task(id: "\(conversation?.id ?? "")|\(app.calls.call?.id ?? "")") {
+            guard let id = conversation?.id else { return }
+            liveCall = await app.calls.live(conversationId: id)
         }
         .task { await load() }
         .task(id: conversation?.id) {
@@ -83,6 +98,22 @@ struct ChatView: View {
                 }
             }
         }
+    }
+
+    private func joinBar(_ call: Call) -> some View {
+        Button { Task { await app.calls.join(call.id) } } label: {
+            HStack(spacing: 10) {
+                Image(systemName: call.media == .video ? "video.fill" : "phone.fill")
+                Text("Appel en cours").font(.wely.subheadline.weight(.semibold))
+                Spacer()
+                Text("Rejoindre").font(.wely.subheadline.weight(.semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Theme.success)
+        }
+        .buttonStyle(.plain)
     }
 
     private var messageList: some View {

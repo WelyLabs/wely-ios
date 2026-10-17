@@ -79,9 +79,7 @@ struct PreferencesView: View {
             } else if prefsError == nil {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 8)
             }
-            Label("Les notifications push sur iPhone arrivent bientôt : en attendant, elles s'affichent dans l'app.", systemImage: "iphone.radiowaves.left.and.right")
-                .font(.wely.footnote)
-                .foregroundStyle(Theme.ink2)
+            devicePush
             if let prefsError { ErrorLine(text: prefsError) }
         }
         .onChange(of: notificationPrefs) { old, new in
@@ -95,6 +93,31 @@ struct PreferencesView: View {
                     prefsError = "Ce réglage n'a pas pu être enregistré. Réessayez dans un instant."
                 }
             }
+        }
+    }
+
+    /// This iPhone's permission, and what it gets without a paid Apple team.
+    @ViewBuilder
+    private var devicePush: some View {
+        switch app.push.permission {
+        case .notDetermined:
+            AsyncButton("Activer sur cet iPhone") { await app.push.enable() }
+                .buttonStyle(.welySecondary)
+        case .denied:
+            Button("Autoriser dans Réglages") {
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            }
+            .buttonStyle(.welySecondary)
+        case .allowed, .unknown:
+            EmptyView()
+        }
+        if app.push.permission == .allowed {
+            Label(app.push.remoteAvailable
+                  ? "Activées sur cet iPhone."
+                  : "Activées sur cet iPhone tant que Wely est ouverte ou vient de passer en arrière-plan. Quand l'app est fermée, il faudra la version publiée sur l'App Store.",
+                  systemImage: "iphone.radiowaves.left.and.right")
+                .font(.wely.footnote)
+                .foregroundStyle(Theme.ink2)
         }
     }
 
@@ -128,6 +151,8 @@ struct PreferencesView: View {
     }
 
     private func load() async {
+        // Read again here: the user may have changed it in Settings since.
+        Task { await app.push.refresh() }
         async let prefs = app.notificationService.preferences()
         async let eligibility = app.users.deletionEligibility()
         do { notificationPrefs = try await prefs } catch { prefsError = "Vos réglages de notifications n'ont pas pu être chargés." }

@@ -59,6 +59,12 @@ final class APIClient {
         try await decode(send(request("GET", path, query: query)))
     }
 
+    /// For endpoints that answer 204 when there is nothing: nil then.
+    func getIfPresent<T: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> T? {
+        let data = try await send(request("GET", path, query: query))
+        return data.isEmpty ? nil : try decode(data) as T
+    }
+
     func post<T: Decodable>(_ path: String, body: some Encodable = Empty()) async throws -> T {
         try await decode(send(request("POST", path, body: body)))
     }

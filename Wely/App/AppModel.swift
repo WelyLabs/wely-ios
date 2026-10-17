@@ -18,6 +18,8 @@ final class AppModel {
     let people: PeopleStore
     let notifications: NotificationCenterModel
     let chatSocket: ChatSocket
+    let calls: CallController
+    let push: DevicePush
 
     /// Bumped after a change elsewhere (an event joined, created...) so lists reload.
     var eventsVersion = 0
@@ -43,7 +45,13 @@ final class AppModel {
         notificationService = NotificationService(api: api)
         people = PeopleStore(users: users, social: social)
         notifications = NotificationCenterModel(service: notificationService, session: session, live: !isDemo)
-        chatSocket = ChatSocket(session: session, enabled: !isDemo)
+        let socket = ChatSocket(session: session, enabled: !isDemo)
+        chatSocket = socket
+        let people = people
+        calls = CallController(service: CallService(api: api), socket: socket, myId: { people.myId })
+        push = DevicePush(service: notificationService)
+        push.onOpen = { [weak self] destination in self?.open(destination) }
+        notifications.onArrival = { [weak self] notification in self?.push.showLocally(notification) }
     }
 
     /// What signing in starts: who I am, who I know, the notification stream.
@@ -52,10 +60,21 @@ final class AppModel {
         await people.loadMe()
         await people.loadDirectory()
         notifications.start()
+        if !isDemo {
+            calls.listen()
+            await push.refresh()
+        }
+    }
+
+    /// Signs out, after telling wely-notifications to stop pushing this account to this iPhone.
+    func signOut() async {
+        await push.unregister()
+        await session.signOut()
     }
 
     func stop() {
         notifications.stop()
+        calls.stopListening()
         chatSocket.disconnect()
         people.reset()
     }
@@ -77,6 +96,10 @@ final class AppModel {
 
     func open(_ destination: AppDestination) {
         switch destination {
+        case .call(let id):
+            // A call is not a screen of a tab: it opens over all of them.
+            Task { await calls.join(id) }
+            return
         case .conversation: selectedTab = .messages
         case .person, .community, .invitation: selectedTab = .social
         case .preferences: selectedTab = .profile
@@ -190,6 +213,8 @@ final class NotificationCenterModel {
     private(set) var isLoading = false
     /// The last notification that arrived live, for a banner.
     var arrival: AppNotification?
+    /// Each live arrival, for the system notification shown while the app is in the background.
+    @ObservationIgnored var onArrival: ((AppNotification) -> Void)?
 
     @ObservationIgnored private let service: NotificationService
     @ObservationIgnored private let session: AuthSession
@@ -260,7 +285,10 @@ final class NotificationCenterModel {
         case "notification":
             guard let notification = try? JSONDecoder.wely.decode(AppNotification.self, from: data) else { return }
             upsert([notification])
-            if !notification.isRead { arrival = notification }
+            if !notification.isRead {
+                arrival = notification
+                onArrival?(notification)
+            }
         case "unread":
             if let count = try? JSONDecoder.wely.decode(UnreadCount.self, from: data) { unread = count.count }
         default:

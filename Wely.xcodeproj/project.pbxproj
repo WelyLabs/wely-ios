@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A1000000000000000000AB01 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = A1000000000000000000AB02 /* WebRTC */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A1000000000000000000AA20 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -41,6 +45,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000AB01 /* WebRTC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +107,7 @@
 			);
 			name = Wely;
 			packageProductDependencies = (
+				A1000000000000000000AB02 /* WebRTC */,
 			);
 			productName = Wely;
 			productReference = A1000000000000000000AA11 /* Wely.app */;
@@ -158,6 +164,9 @@
 			);
 			mainGroup = A1000000000000000000AA02;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1000000000000000000AB03 /* XCRemoteSwiftPackageReference "WebRTC" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A1000000000000000000AA03 /* Products */;
 			projectDirPath = "";
@@ -395,6 +404,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1000000000000000000AB03 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 155.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1000000000000000000AB02 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1000000000000000000AB03 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1000000000000000000AA01 /* Project object */;
 }

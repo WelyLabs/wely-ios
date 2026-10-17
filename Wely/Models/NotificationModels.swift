@@ -45,6 +45,17 @@ struct NotificationReadRequest: Codable, Sendable {
     var all: Bool?
 }
 
+/// Which APNs gateway a device token belongs to: development builds get sandbox tokens.
+enum ApnsEnvironment: String, Codable, Sendable {
+    case sandbox = "SANDBOX"
+    case production = "PRODUCTION"
+}
+
+struct ApnsDeviceRequest: Codable, Sendable {
+    let token: String
+    let environment: ApnsEnvironment
+}
+
 struct UnreadCount: Codable, Sendable {
     let count: Int
 }
@@ -57,6 +68,7 @@ enum AppDestination: Hashable, Sendable {
     case community(String)
     case invitation(String)
     case preferences
+    case call(String)
 
     /// Reads wely-web's paths, so notifications and shared links land on the same screen.
     init?(webPath: String) {
@@ -69,6 +81,7 @@ enum AppDestination: Hashable, Sendable {
         case ("communities", 3) where parts[1] == "invite": self = .invitation(parts[2])
         case ("communities", 2): self = .community(parts[1])
         case ("preferences", 1): self = .preferences
+        case ("call", 2): self = .call(parts[1])
         default: return nil
         }
     }

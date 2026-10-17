@@ -54,11 +54,25 @@ the profile in Settings → General → VPN & Device Management. The app expires
 | `Wely/Core/Auth` | Keycloak sign-in (password grant; PKCE for sign-up), tokens in the Keychain, refresh |
 | `Wely/DesignSystem` | wely-web's look: colours, Outfit, buttons, cards, the tab bar's pieces |
 | `Wely/Core/API` | gateway client (JSON, multipart, business error codes), lenient decoding |
-| `Wely/Core/Realtime` | RSocket over WebSocket (chat), server-sent events (notifications, polls) |
+| `Wely/Core/Realtime` | RSocket over WebSocket (chat, call events), server-sent events (notifications, polls) |
+| `Wely/Core/Calls` | audio and video calls: one WebRTC connection to Cloudflare's relay through wely-chat, simulcast camera, ringing |
+| `Wely/Core/Push` | notification permission, APNs token registration, local notifications for live arrivals |
 | `Wely/Core/Backend` | `DemoTransport`, the in-memory gateway of the demo mode |
 | `Wely/Models` | the wire types, as wely-web's models |
 | `Wely/Services` | one struct per backend service, same routes as wely-web |
 | `Wely/Features` | calendar, explore (feed + map), events (detail, form, poll, expenses), social (friends, people), communities, chat, notifications, profile, preferences |
 | `WelyTests` | Swift Testing unit tests |
 
-Not ported yet: calls (WebRTC) and push notifications (APNs, needs a backend change).
+## Calls
+
+Calls use Google's WebRTC build, as a Swift package ([stasel/WebRTC](https://github.com/stasel/WebRTC)),
+and the same `chat-service/calls` steps as wely-web, so a phone and a browser can call each other.
+They ring while the app runs; ringing a closed app needs PushKit and CallKit, so a paid team.
+
+## Push notifications
+
+A free personal team cannot sign the APNs entitlement. Without it, the app shows a system
+notification for what arrives on the live stream while it runs or has just gone to the background.
+With a paid team, set `CODE_SIGN_ENTITLEMENTS = Config/Wely.entitlements` in
+`Signing.local.xcconfig`: the app then registers its APNs token with wely-notifications, which
+pushes to it once its APNs key is configured.

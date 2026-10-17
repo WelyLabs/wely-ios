@@ -35,7 +35,7 @@ struct ProfileView: View {
                     }
                 }
                 Section {
-                    Button("Se déconnecter", role: .destructive) { Task { await app.session.signOut() } }
+                    Button("Se déconnecter", role: .destructive) { Task { await app.signOut() } }
                 }
             }
             .navigationTitle("Profil")
