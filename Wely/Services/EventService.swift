@@ -8,7 +8,10 @@ struct EventService {
     // MARK: Lists
 
     func subscribed() async throws -> [FeedEvent] { try await list("\(base)/me/subscribed") }
-    func feed() async throws -> [FeedEvent] { try await list("\(base)/me/feed") }
+    /// By affinity, events with the closest friends come first; otherwise by date.
+    func feed(byAffinity: Bool = false) async throws -> [FeedEvent] {
+        try await list("\(base)/me/feed", query: ["rank": byAffinity ? "affinity" : nil])
+    }
     func myPolls() async throws -> [FeedEvent] { try await list("\(base)/me/polls") }
     /// The user's and their friends' birthdays between two instants (400 days at most).
     func birthdays(from: Date, to: Date) async throws -> [BirthdayOccurrence] {
@@ -78,6 +81,22 @@ struct EventService {
         try await api.get("\(base)/users/\(friendId)/calendar", query: ["from": from.ISO8601Format(), "to": to.ISO8601Format()])
     }
     func mySummary() async throws -> ProfileSummary { try await api.get("\(base)/me/summary") }
+
+    // MARK: Friendships
+
+    /// Up to three close friends not seen for a while.
+    func reunions() async throws -> [ReunionCandidate] {
+        let lenient: [Lenient<ReunionCandidate>] = try await api.get("\(base)/me/reunions")
+        return lenient.compactMap(\.value)
+    }
+    /// « Plus tard »: that friend is not suggested again for 30 days.
+    func dismissReunion(_ friendId: String) async throws { try await api.send("POST", "\(base)/me/reunions/\(friendId)/dismiss") }
+    func memories(with friendId: String) async throws -> FriendshipMemories { try await api.get("\(base)/me/friendships/\(friendId)/memories") }
+    /// The intimate friends' calendars between two instants (62 days at most).
+    func circle(from: Date, to: Date) async throws -> [CircleEntry] {
+        let lenient: [Lenient<CircleEntry>] = try await api.get("\(base)/me/circle", query: ["from": from.ISO8601Format(), "to": to.ISO8601Format()])
+        return lenient.compactMap(\.value)
+    }
     func friendOverview(_ friendId: String) async throws -> FriendOverview { try await api.get("\(base)/users/\(friendId)/overview") }
 
     // MARK: Expenses
@@ -98,8 +117,8 @@ struct EventService {
     }
 
     /// One unreadable event is left out rather than emptying the list.
-    private func list(_ path: String) async throws -> [FeedEvent] {
-        let lenient: [Lenient<FeedEvent>] = try await api.get(path)
+    private func list(_ path: String, query: [String: String?] = [:]) async throws -> [FeedEvent] {
+        let lenient: [Lenient<FeedEvent>] = try await api.get(path, query: query)
         return lenient.compactMap(\.value)
     }
 }

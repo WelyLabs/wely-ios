@@ -5,6 +5,9 @@ enum Route: Hashable {
     case event(FeedEvent)
     case eventId(String)
     case person(String)
+    /// A friend's page that opens « Proposer une sortie » at once.
+    case proposeOuting(String)
+    case memories(String)
     case community(String)
     case conversation(String)
     case directChat(friendId: String)
@@ -20,6 +23,8 @@ enum Route: Hashable {
         case .event(let id): self = .eventId(id)
         case .conversation(let id): self = .conversation(id)
         case .person(let id): self = .person(id)
+        case .proposeOuting(let id): self = .proposeOuting(id)
+        case .memories(let id): self = .memories(id)
         case .community(let id): self = .community(id)
         case .invitation(let token): self = .invitation(token)
         case .preferences: self = .preferences
@@ -37,6 +42,8 @@ extension View {
                 case .event(let event): EventDetailView(eventId: event.id, initial: event)
                 case .eventId(let id): EventDetailView(eventId: id, initial: nil)
                 case .person(let id): PersonView(userId: id)
+                case .proposeOuting(let id): PersonView(userId: id, proposesOuting: true)
+                case .memories(let id): MemoriesView(friendId: id)
                 case .community(let id): CommunityDetailView(communityId: id)
                 case .conversation(let id): ChatView(target: .conversation(id))
                 case .directChat(let friendId): ChatView(target: .friend(friendId))

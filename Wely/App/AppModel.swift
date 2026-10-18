@@ -133,7 +133,7 @@ final class AppModel {
             calendarRequest = destination
             return
         case .conversation: selectedTab = .messages
-        case .person, .community, .invitation: selectedTab = .social
+        case .person, .proposeOuting, .memories, .community, .invitation: selectedTab = .social
         case .preferences: selectedTab = .profile
         case .event: break
         }

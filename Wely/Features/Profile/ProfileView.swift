@@ -18,7 +18,10 @@ struct ProfileView: View {
             List {
                 Section { header }
                 if let summary {
-                    Section { stats(summary) }
+                    Section {
+                        stats(summary)
+                        friendshipYear(summary)
+                    } header: { Text("Ton année Wely") }
                     aboutSection
                     if !summary.upcoming.isEmpty { eventsSection("À venir", summary.upcoming) }
                     if !summary.circle.isEmpty { circleSection(summary.circle) }
@@ -110,6 +113,54 @@ struct ProfileView: View {
             Text(label).font(.wely.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// The year's friendships: who joined the circle, who got closer, who came along most.
+    @ViewBuilder
+    private func friendshipYear(_ summary: ProfileSummary) -> some View {
+        if !summary.newFriendsThisYear.isEmpty {
+            let count = summary.newFriendsThisYear.count
+            HStack(spacing: 12) {
+                AvatarStack(userIds: summary.newFriendsThisYear.map(\.userId), limit: 4, size: 30)
+                Text(count == 1 ? "1 nouvel ami cette année" : "\(count) nouveaux amis cette année")
+                    .font(.wely.subheadline.weight(.medium))
+            }
+            .accessibilityElement(children: .combine)
+        }
+        ForEach(summary.upgradesThisYear, id: \.self) { upgrade in
+            NavigationLink(value: Route.person(upgrade.userId)) {
+                HStack(spacing: 12) {
+                    AvatarView(userId: upgrade.userId, size: 30)
+                    Text(upgrade.label(name: app.people.person(upgrade.userId).name))
+                        .font(.wely.subheadline)
+                    Spacer(minLength: 0)
+                    Text(upgrade.closeness.celebration.emoji)
+                }
+            }
+        }
+        if !summary.topFriendsThisYear.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Tes compagnons de sortie").font(.wely.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(Array(summary.topFriendsThisYear.prefix(3).enumerated()), id: \.element.userId) { rank, companion in
+                        NavigationLink(value: Route.person(companion.userId)) {
+                            VStack(spacing: 4) {
+                                AvatarView(userId: companion.userId, size: 48)
+                                    .overlay(alignment: .bottomTrailing) {
+                                        Text(["🥇", "🥈", "🥉"][rank]).font(.system(size: 16)).offset(x: 4, y: 4)
+                                    }
+                                Text(app.people.person(companion.userId).name).font(.wely.caption).lineLimit(1)
+                                Text(companion.outingsTogether == 1 ? "1 sortie" : "\(companion.outingsTogether) sorties")
+                                    .font(.wely.caption2).foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
     }
 
     private var aboutSection: some View {

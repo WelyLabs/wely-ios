@@ -4,6 +4,8 @@ import SwiftUI
 struct PersonView: View {
     @Environment(AppModel.self) private var app
     let userId: String
+    /// From a « Proposer une sortie » link: the form opens once the page has loaded.
+    var proposesOuting = false
 
     @State private var person: SocialPerson?
     @State private var profile: FriendProfile?
@@ -13,6 +15,11 @@ struct PersonView: View {
     @State private var showingCalendar = false
     @State private var confirmingRemoval = false
     @State private var error: String?
+    @State private var outing: EventFormView.Draft?
+    @State private var proposed = false
+    /// The level just reached, celebrated for a moment.
+    @State private var celebrating: Closeness?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isFriend: Bool { person?.relationStatus == .friends }
 
@@ -22,7 +29,14 @@ struct PersonView: View {
                 VStack(spacing: 20) {
                     header(person)
                     actions(person)
-                    if isFriend { closeness(person) }
+                    if isFriend {
+                        AsyncButton { await proposeOuting() } label: {
+                            Label("Proposer une sortie", systemImage: "calendar.badge.plus").frame(maxWidth: .infinity, minHeight: 36)
+                        }
+                        .buttonStyle(.welySecondary)
+                        closeness(person)
+                        memoriesLink
+                    }
                     if let profile, (profile.bio?.isEmpty == false || !profile.interests.isEmpty) { about(profile) }
                     if let overview { shared(overview) }
                     if !mutual.isEmpty { mutualFriends }
@@ -53,7 +67,30 @@ struct PersonView: View {
             }
         }
         .sheet(isPresented: $showingCalendar) { FriendCalendarSheet(userId: userId) }
-        .task { await load() }
+        .sheet(item: $outing) { draft in
+            EventFormView(draft: draft) { created in
+                app.eventsChanged()
+                app.open(.event(created.id))
+            }
+        }
+        .overlay {
+            if let celebrating {
+                ClosenessCelebration(closeness: celebrating, name: person?.userName ?? "")
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.9).combined(with: .opacity))
+                    .onTapGesture { withAnimation { self.celebrating = nil } }
+                    .task {
+                        try? await Task.sleep(for: .seconds(2.8))
+                        withAnimation { self.celebrating = nil }
+                    }
+            }
+        }
+        .task {
+            await load()
+            if proposesOuting, !proposed, isFriend {
+                proposed = true
+                await proposeOuting()
+            }
+        }
         .refreshable { await load() }
         .errorAlert($error)
     }
@@ -136,8 +173,12 @@ struct PersonView: View {
                         Text("\(person.userName) propose de passer à « \(proposal.label) » : \(proposal.hint).")
                             .font(.wely.subheadline)
                         HStack {
-                            AsyncButton("Accepter") { _ = try await app.social.acceptCloseness(userId); await load() }
-                                .buttonStyle(.welyPrimary)
+                            AsyncButton("Accepter") {
+                                let accepted = try await app.social.acceptCloseness(userId)
+                                withAnimation(.snappy) { celebrating = accepted.closeness > friendship.closeness ? accepted.closeness : proposal }
+                                await load()
+                            }
+                            .buttonStyle(.welyPrimary)
                             AsyncButton("Refuser") { _ = try await app.social.declineCloseness(userId); await load() }
                                 .buttonStyle(.welySecondary)
                         }
@@ -147,6 +188,31 @@ struct PersonView: View {
                 }
             }
         }
+    }
+
+    /// « Vos souvenirs »: the friendship's story.
+    private var memoriesLink: some View {
+        NavigationLink(value: Route.memories(userId)) {
+            HStack(spacing: 12) {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.wely.title3)
+                    .foregroundStyle(Theme.gradient)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Vos souvenirs").font(.wely.body.weight(.semibold)).foregroundStyle(Theme.ink)
+                    Text("Votre amitié, sortie après sortie").font(.wely.caption).foregroundStyle(Theme.ink2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.wely.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Opens the form on the week's common free evenings.
+    private func proposeOuting() async {
+        outing = await OutingProposal.draft(with: userId, events: app.events)
     }
 
     private func about(_ profile: FriendProfile) -> some View {

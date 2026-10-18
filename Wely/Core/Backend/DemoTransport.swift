@@ -52,6 +52,8 @@ struct DemoStore {
     var birthdays: [String: MonthDay] = [:]
     var myBirthYear = 1996
     var notificationPreferences = NotificationPreferences(calls: true, messages: true, events: true, friends: true, birthdays: true)
+    /// Friends put off from « Ça fait longtemps ».
+    var dismissedReunions: Set<String> = []
 
     init() {
         events = [
@@ -124,6 +126,15 @@ struct DemoStore {
             AppNotification(id: "n5", type: "BIRTHDAY_SURPRISE_CREATED", category: "BIRTHDAYS", title: "🤫 Inès organise l'anniversaire surprise de Hugo",
                             body: "Rejoins la fête, Hugo ne voit rien.", link: "/event/demo-surprise", groupKey: "birthday-hugo",
                             count: 1, actorId: "ines", createdAt: now.addingTimeInterval(-7200), readAt: nil),
+            AppNotification(id: "n6", type: "FRIENDSHIP_ANNIVERSARY", category: "FRIENDS", title: "💛 1 an d'amitié avec Léa",
+                            body: "Revivez vos souvenirs ensemble.", link: "/friends/lea/memories", groupKey: "friendship-lea-1",
+                            count: 1, actorId: "lea", createdAt: now.addingTimeInterval(-300), readAt: nil),
+            AppNotification(id: "n7", type: "REUNION_NUDGE", category: "FRIENDS", title: "💭 Ça fait un moment, Hugo",
+                            body: "Vous ne vous êtes pas vus depuis 4 mois. Et si tu proposais une sortie ?", link: "/friends/hugo?propose=1",
+                            groupKey: "reunion-hugo", count: 1, actorId: "hugo", createdAt: now.addingTimeInterval(-3600), readAt: nil),
+            AppNotification(id: "n8", type: "CLOSENESS_UPGRADED", category: "FRIENDS", title: "🧡 Inès et toi êtes maintenant proches",
+                            body: "Vous partagez désormais un peu plus.", link: "/friends/ines", groupKey: nil,
+                            count: 1, actorId: "ines", createdAt: now.addingTimeInterval(-86_400), readAt: now),
         ]
         expenses = [
             "demo-10": [
@@ -246,7 +257,19 @@ struct DemoStore {
         // events
         case ("GET", "events-service", ["events", "me", "subscribed"]): return ok(events.filter { joined.contains($0.id) })
         case ("GET", "events-service", ["events", "me", "feed"]):
-            return ok(events.filter { !$0.isPast && $0.visibility != .private }.sorted { $0.startDate < $1.startDate })
+            let feed = events.filter { !$0.isPast && $0.visibility != .private }.map(withFriendsGoing)
+            if query["rank"] == "affinity" { return ok(feed.sorted { ($0.affinity, $1.startDate) > ($1.affinity, $0.startDate) }) }
+            return ok(feed.sorted { $0.startDate < $1.startDate })
+        case ("GET", "events-service", ["events", "me", "reunions"]):
+            return ok(reunions().filter { !dismissedReunions.contains($0.friendId) })
+        case ("POST", "events-service", let r) where r.count == 5 && r[0] == "events" && r[2] == "reunions" && r[4] == "dismiss":
+            guard friends[r[3]] != nil else { return (404, json(["code": "EVT-BUS-040"])) }
+            dismissedReunions.insert(r[3])
+            return (204, Data())
+        case ("GET", "events-service", let r) where r.count == 5 && r[0] == "events" && r[2] == "friendships" && r[4] == "memories":
+            guard let memories = memories(with: r[3]) else { return (404, json(["code": "EVT-BUS-041"])) }
+            return ok(memories)
+        case ("GET", "events-service", ["events", "me", "circle"]): return ok(circle())
         case ("GET", "events-service", ["events", "me", "polls"]): return ok(events.filter(\.isOpenPoll))
         case ("GET", "events-service", ["events", "me", "birthdays"]):
             guard let from = query["from"].flatMap(WireDate.parse), let to = query["to"].flatMap(WireDate.parse) else { return (400, Data()) }
@@ -292,7 +315,7 @@ struct DemoStore {
             return ok(events.last!)
         case ("GET", "events-service", let r) where r.count == 2 && r[0] == "events":
             guard let event = events.first(where: { $0.id == r[1] }) else { return (404, Data()) }
-            return ok(event)
+            return ok(withFriendsGoing(event))
         case ("PUT", "events-service", let r) where r.count == 2 && r[0] == "events":
             guard let request = decode(EventUpdateRequest.self, body), let index = events.firstIndex(where: { $0.id == r[1] }) else { return (404, Data()) }
             guard events[index].organizerId == Self.me else { return (403, json(["code": "EVT-BUS-002"])) }
@@ -484,7 +507,70 @@ struct DemoStore {
 
     private func socialPerson(_ id: String) -> SocialPerson {
         SocialPerson(userId: id, userName: people[id]?.name ?? id, hashtag: people[id]?.tag ?? "", profilePicUrl: nil, relationStatus: relation(id),
-                     closeness: friends[id], proposal: id == "hugo" ? .intimate : nil, proposedByFriend: id == "hugo", since: friends[id] != nil ? "2025-06-01" : nil)
+                     closeness: friends[id], proposal: id == "hugo" ? .intimate : nil, proposedByFriend: id == "hugo",
+                     since: friends[id] != nil ? DayString.string(from: since(id), calendar: calendar) : nil)
+    }
+
+    /// Léa became a friend a year ago today, to show the anniversary; the others in June 2025.
+    private func since(_ id: String) -> Date {
+        if id == "lea" { return calendar.date(byAdding: .year, value: -1, to: calendar.startOfDay(for: now))! }
+        return calendar.date(from: DateComponents(year: 2025, month: 6, day: 1))!
+    }
+
+    /// The caller's friends among the organizer and participants, as wely-events adds them.
+    private func withFriendsGoing(_ event: FeedEvent) -> FeedEvent {
+        guard event.kind != .birthday else { return event }
+        let ids = Set([event.organizerId] + participants[event.id, default: []]).subtracting([Self.me])
+        let going = ids.compactMap { id in friends[id].map { (id, $0) } }
+            .sorted { ($0.1, $1.0) > ($1.1, $0.0) }
+            .map { FriendGoing(userId: $0.0, closeness: $0.1) }
+        let affinity = going.first.map { $0.closeness == .intimate ? 3 : $0.closeness == .close ? 2 : 1 } ?? 0
+        return event.with(friendsGoing: Array(going.prefix(5)), count: going.count, affinity: affinity)
+    }
+
+    /// Hugo, last seen four months ago; Inès, never seen on Wely.
+    private func reunions() -> [ReunionCandidate] {
+        [
+            ReunionCandidate(friendId: "hugo", name: "Hugo", closeness: friends["hugo"], lastSharedAt: at(-122, 11),
+                             lastSharedEventId: "demo-10", lastSharedTitle: "Week-end à Annecy", monthsApart: 4),
+            ReunionCandidate(friendId: "ines", name: "Inès", closeness: friends["ines"]),
+        ].filter { friends[$0.friendId] != nil }
+    }
+
+    private func memories(with id: String) -> FriendshipMemories? {
+        guard let closeness = friends[id], let person = people[id] else { return nil }
+        let since = since(id)
+        let days = calendar.dateComponents([.day], from: since, to: calendar.startOfDay(for: now)).day ?? 0
+        let together = events.filter { $0.isPast && joined.contains($0.id) && participants[$0.id, default: []].contains(id) }
+            .sorted { $0.startDate < $1.startDate }
+        let memory = { (event: FeedEvent) in MemoryEvent(eventId: event.id, title: event.title, startDate: event.startDate, imageUrl: event.image) }
+        let older = [
+            MemoryEvent(eventId: "demo-10", title: "Week-end à Annecy", startDate: at(-20, 9)),
+            MemoryEvent(eventId: "demo-6", title: "Pique-nique des quais", startDate: at(-75, 12)),
+            MemoryEvent(eventId: "demo-2", title: "Première séance de bloc", startDate: at(-300, 18)),
+            MemoryEvent(eventId: "demo-1", title: "Afterwork de rentrée", startDate: at(-40, 19)),
+        ]
+        let highlights = Array((together.map(memory) + older).reduce(into: [MemoryEvent]()) { list, item in
+            if !list.contains(where: { $0.title == item.title }) { list.append(item) }
+        }.sorted { ($0.startDate ?? .distantPast) > ($1.startDate ?? .distantPast) }.prefix(6))
+        return FriendshipMemories(friendId: id, name: person.first, closeness: closeness, since: since,
+                                  years: calendar.dateComponents([.year], from: since, to: now).year ?? 0, days: days,
+                                  sharedCount: together.count + 11, first: older[2], last: together.last.map(memory) ?? older[0],
+                                  highlights: highlights)
+    }
+
+    /// The intimate friends' entries: Léa's outings, a busy lunch and a dinner of her own.
+    private func circle() -> [CircleEntry] {
+        let intimates = friends.filter { $0.value == .intimate }.keys
+        return intimates.flatMap { id -> [CircleEntry] in
+            let outings = events.filter { participants[$0.id, default: []].contains(id) && !$0.isOpenPoll && $0.kind == .standard }.map {
+                CircleEntry(userId: id, start: $0.startDate, end: $0.endDate, allDay: $0.allDay, eventId: $0.id, title: $0.title, location: $0.location)
+            }
+            return outings + [
+                CircleEntry(userId: id, start: at(1, 12), end: at(1, 14)),
+                CircleEntry(userId: id, start: at(3, 20), end: at(3, 23), title: "Dîner chez sa sœur", location: "Croix-Rousse"),
+            ]
+        }
     }
 
     private func withRole(_ community: Community) -> Community {
@@ -532,7 +618,12 @@ struct DemoStore {
                                                       Companion(userId: "ines", outingsTogether: 5)],
                               places: [VisitedPlace(label: "Ninkasi Gerland", coordinates: Coordinates(latitude: 45.7325, longitude: 4.8335), visits: 6),
                                        VisitedPlace(label: "Climb Up Gerland", coordinates: Coordinates(latitude: 45.7301, longitude: 4.8281), visits: 4)],
-                              balances: [EventBalance(eventId: "demo-10", title: "Week-end à Annecy", netCents: ledger("demo-10").balances.first { $0.userId == Self.me }?.netCents ?? 0)])
+                              balances: [EventBalance(eventId: "demo-10", title: "Week-end à Annecy", netCents: ledger("demo-10").balances.first { $0.userId == Self.me }?.netCents ?? 0)],
+                              newFriendsThisYear: [NewFriend(userId: "nathan", since: at(-150, 12)), NewFriend(userId: "sarah", since: at(-60, 12))],
+                              upgradesThisYear: [ClosenessUpgrade(userId: "lea", closeness: .intimate, at: at(-210, 12)),
+                                                 ClosenessUpgrade(userId: "ines", closeness: .close, at: at(-1, 12))],
+                              topFriendsThisYear: [Companion(userId: "lea", outingsTogether: 11), Companion(userId: "hugo", outingsTogether: 7),
+                                                   Companion(userId: "ines", outingsTogether: 4)])
     }
 
     // MARK: JSON

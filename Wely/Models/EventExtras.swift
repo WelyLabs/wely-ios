@@ -150,6 +150,12 @@ struct ProfileSummary: Codable, Hashable, Sendable {
     @DefaultEmpty var circle: [Companion] = []
     @DefaultEmpty var places: [VisitedPlace] = []
     @DefaultEmpty var balances: [EventBalance] = []
+    /// The year in review's friendships; empty from a backend that predates them.
+    @DefaultEmpty var newFriendsThisYear: [NewFriend] = []
+    @DefaultEmpty var upgradesThisYear: [ClosenessUpgrade] = []
+    @DefaultEmpty var topFriendsThisYear: [Companion] = []
+
+    var hasFriendshipYear: Bool { !newFriendsThisYear.isEmpty || !upgradesThisYear.isEmpty || !topFriendsThisYear.isEmpty }
 }
 
 /// What the viewer and a friend share, `events/users/{id}/overview`.

@@ -31,6 +31,22 @@ struct CalendarModelTests {
         #expect(model.selectedEntries.first?.mine == true)
     }
 
+    @Test func loadsTheCircleOfTheGridAndClearsIt() async {
+        let model = model()
+        model.select(Calendar.wely.date(byAdding: .day, value: 1, to: .now)!)
+        await model.loadCircle()
+        #expect(!model.circle.isEmpty)
+        #expect(model.selectedCircle.contains { $0.title == nil && $0.userId == "lea" })
+        model.clearCircle()
+        #expect(model.circle.isEmpty)
+    }
+
+    @Test func aFailingCircleLeavesItEmpty() async {
+        let model = model(FailingTransport())
+        await model.loadCircle()
+        #expect(model.circle.isEmpty)
+    }
+
     @Test func loadsTheBirthdaysOfTheGrid() async {
         let model = model()
         model.goToToday()

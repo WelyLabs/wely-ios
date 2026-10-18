@@ -132,20 +132,27 @@ struct FeedEvent: Codable, Hashable, Identifiable, Sendable {
     let kind: EventKind
     /// Whose birthday it is, for a birthday or a surprise.
     let honoreeId: String?
+    /// The caller's friends among those going, closest first (5 at most).
+    let friendsGoing: [FriendGoing]
+    /// How many friends go, uncapped.
+    let friendsGoingCount: Int
+    /// The closest level among them: 0 none, 1 friend, 2 close, 3 intimate.
+    let affinity: Int
 
     /// Without an end, an event lasts an hour, as the server counts it.
     static let defaultDuration: TimeInterval = 3600
 
     enum CodingKeys: String, CodingKey {
         case id, title, organizerId, startDate, endDate, location, coordinates, image, description, visibility, poll, communityId, responses
-        case allDay, kind, honoreeId
+        case allDay, kind, honoreeId, friendsGoing, friendsGoingCount, affinity
     }
 
     init(
         id: String, title: String, organizerId: String, startDate: Date, endDate: Date? = nil,
         location: String = "", coordinates: Coordinates? = nil, image: String? = nil, description: String = "",
         visibility: Visibility? = .friends, poll: Poll? = nil, communityId: String? = nil, responses: EventResponses? = nil,
-        allDay: Bool = false, kind: EventKind = .standard, honoreeId: String? = nil
+        allDay: Bool = false, kind: EventKind = .standard, honoreeId: String? = nil,
+        friendsGoing: [FriendGoing] = [], friendsGoingCount: Int = 0, affinity: Int = 0
     ) {
         self.id = id
         self.title = title
@@ -163,6 +170,9 @@ struct FeedEvent: Codable, Hashable, Identifiable, Sendable {
         self.allDay = allDay
         self.kind = kind
         self.honoreeId = honoreeId
+        self.friendsGoing = friendsGoing
+        self.friendsGoingCount = friendsGoingCount
+        self.affinity = affinity
     }
 
     init(from decoder: Decoder) throws {
@@ -183,12 +193,18 @@ struct FeedEvent: Codable, Hashable, Identifiable, Sendable {
         allDay = (try? c.decodeIfPresent(Bool.self, forKey: .allDay)) ?? false
         kind = (try? c.decodeIfPresent(EventKind.self, forKey: .kind)) ?? .standard
         honoreeId = try? c.decodeIfPresent(String.self, forKey: .honoreeId)
+        // Missing from a backend that predates them: nobody, and no ranking.
+        friendsGoing = ((try? c.decodeIfPresent([Lenient<FriendGoing>].self, forKey: .friendsGoing)) ?? []).compactMap(\.value)
+        friendsGoingCount = (try? c.decodeIfPresent(Int.self, forKey: .friendsGoingCount)) ?? friendsGoing.count
+        affinity = (try? c.decodeIfPresent(Int.self, forKey: .affinity)) ?? 0
     }
 
     var isOpenPoll: Bool { poll?.isOpen == true }
     var isPast: Bool { endDate < .now }
     /// A birthday is everyone's to see, no one's to join.
     var isJoinable: Bool { kind != .birthday }
+    /// « 3 de tes proches y vont »; never on a birthday.
+    var friendsGoingLabel: String? { kind == .birthday ? nil : FriendsGoing.label(friendsGoing, total: friendsGoingCount) }
 
     /// The choices offered when creating an event; COMMUNITY is set by the backend.
     static let choosableVisibilities: [Visibility] = [.friends, .public, .private]
@@ -200,6 +216,15 @@ extension FeedEvent {
         FeedEvent(id: id, title: title, organizerId: organizerId, startDate: start ?? startDate, endDate: end ?? endDate, location: location,
                   coordinates: coordinates, image: image ?? self.image, description: description, visibility: visibility,
                   poll: poll ?? self.poll, communityId: communityId, responses: responses ?? self.responses,
-                  allDay: allDay, kind: kind, honoreeId: honoreeId)
+                  allDay: allDay, kind: kind, honoreeId: honoreeId,
+                  friendsGoing: friendsGoing, friendsGoingCount: friendsGoingCount, affinity: affinity)
+    }
+
+    /// A copy with who among the caller's friends goes.
+    func with(friendsGoing going: [FriendGoing], count: Int, affinity: Int) -> FeedEvent {
+        FeedEvent(id: id, title: title, organizerId: organizerId, startDate: startDate, endDate: endDate, location: location,
+                  coordinates: coordinates, image: image, description: description, visibility: visibility, poll: poll,
+                  communityId: communityId, responses: responses, allDay: allDay, kind: kind, honoreeId: honoreeId,
+                  friendsGoing: going, friendsGoingCount: count, affinity: affinity)
     }
 }

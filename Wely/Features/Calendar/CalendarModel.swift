@@ -14,6 +14,8 @@ final class CalendarModel {
     /// The birthdays of the shown grid, by « YYYY-MM-DD ».
     private(set) var birthdays: [String: [BirthdayOccurrence]] = [:]
     private(set) var phase: Phase = .loading
+    /// The intimate friends' entries over the shown grid, while « Mon cercle » is on.
+    private(set) var circle: [CircleEntry] = []
     var displayedMonth: Date
     var selectedDay: Date
 
@@ -52,6 +54,23 @@ final class CalendarModel {
         guard let list = try? await events.birthdays(from: first, to: end) else { return }
         birthdays = Dictionary(grouping: list, by: \.date)
     }
+
+    var selectedCircle: [CircleEntry] { circleEntries(on: selectedDay) }
+
+    /// By start, then by friend.
+    func circleEntries(on day: Date) -> [CircleEntry] {
+        circle.filter { $0.occurs(on: day, calendar: calendar) }.sorted { ($0.allDay ? 0 : 1, $0.start, $0.userId) < ($1.allDay ? 0 : 1, $1.start, $1.userId) }
+    }
+
+    /// The intimates' calendars over the grid on screen (six weeks at most); a failure leaves it empty.
+    func loadCircle() async {
+        let days = grid.days
+        guard let first = days.first?.date, let last = days.last?.date,
+              let end = calendar.date(byAdding: .day, value: 1, to: last) else { return }
+        circle = (try? await events.circle(from: first, to: end)) ?? []
+    }
+
+    func clearCircle() { circle = [] }
 
     /// Loads the user's events and open polls; a failing poll list leaves the fixed events
     /// shown, as on the web.

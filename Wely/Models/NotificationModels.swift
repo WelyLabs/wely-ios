@@ -27,6 +27,9 @@ struct AppNotification: Codable, Hashable, Identifiable, Sendable {
         case "BIRTHDAY_TODAY": "birthday.cake.fill"
         case "FRIEND_BIRTHDAY": "gift.fill"
         case "BIRTHDAY_SURPRISE_PROPOSAL", "BIRTHDAY_SURPRISE_CREATED": "party.popper.fill"
+        case "REUNION_NUDGE": "hand.wave.fill"
+        case "FRIENDSHIP_ANNIVERSARY": "heart.text.square.fill"
+        case "CLOSENESS_UPGRADED": "heart.circle.fill"
         default: "bell.fill"
         }
     }
@@ -85,6 +88,10 @@ enum AppDestination: Hashable, Sendable {
     case calendarDay(String)
     /// The pre-filled surprise for a friend's birthday on that day.
     case surprise(honoreeId: String, date: String)
+    /// A friend's page with « Proposer une sortie » opened.
+    case proposeOuting(friendId: String)
+    /// What the user and a friend lived together.
+    case memories(friendId: String)
 
     /// Reads wely-web's paths, so notifications and shared links land on the same screen.
     init?(webPath: String) {
@@ -101,7 +108,9 @@ enum AppDestination: Hashable, Sendable {
             }
         case ("event", 2...): self = .event(parts.last!)
         case ("chat", 2): self = .conversation(parts[1])
+        case ("friends", 2) where query["propose"] == "1": self = .proposeOuting(friendId: parts[1])
         case ("friends", 2): self = .person(parts[1])
+        case ("friends", 3) where parts[2] == "memories": self = .memories(friendId: parts[1])
         case ("communities", 3) where parts[1] == "invite": self = .invitation(parts[2])
         case ("communities", 2): self = .community(parts[1])
         case ("preferences", 1): self = .preferences

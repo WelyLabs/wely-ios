@@ -123,6 +123,7 @@ struct EventCard: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
+                FriendsGoingRow(event: event)
                 HStack {
                     PersonChip(userId: event.organizerId, prefix: "par")
                     Spacer()

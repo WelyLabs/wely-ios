@@ -15,8 +15,23 @@ struct EventFormView: View {
         var start: Date
         var end: Date
         var visibility: Visibility = .friends
+        /// Two or more open the form as a date poll on them.
+        var slots: [EventCreateRequest.Slot] = []
 
-        var id: String { "\(kind.rawValue)#\(honoreeId ?? "")#\(start.timeIntervalSince1970)" }
+        var id: String { "\(kind.rawValue)#\(honoreeId ?? "")#\(start.timeIntervalSince1970)#\(slots.count)" }
+
+        /// « Proposer une sortie »: a poll on the picked evenings, one fixed slot, or the next evening.
+        static func outing(slots picked: [FreeRange], now: Date = .now, calendar: Calendar = .wely) -> Draft {
+            // A plain title: a friend's name copied into the event would outlive their account elsewhere.
+            let title = "Sortie"
+            if let first = picked.first {
+                let slots = picked.count >= 2 ? picked.map { EventCreateRequest.Slot(start: $0.start, end: $0.end) } : []
+                return Draft(title: title, start: first.start, end: first.end, slots: slots)
+            }
+            var start = calendar.date(bySettingHour: 19, minute: 0, second: 0, of: now) ?? now
+            if start < now { start = calendar.date(byAdding: .day, value: 1, to: start) ?? start }
+            return Draft(title: title, start: start, end: start.addingTimeInterval(OutingSlots.duration))
+        }
 
         /// The surprise for a friend's birthday: 19:00 to 23:00 that day, place left to choose.
         static func surprise(for honoreeId: String, name: String, on day: Date, calendar: Calendar = .wely) -> Draft {
@@ -84,7 +99,8 @@ struct EventFormView: View {
         _start = State(initialValue: draft.start)
         _end = State(initialValue: draft.end)
         _visibility = State(initialValue: draft.visibility)
-        _slots = State(initialValue: [0, 1].map { offset in
+        _isPoll = State(initialValue: draft.slots.count >= 2)
+        _slots = State(initialValue: draft.slots.count >= 2 ? Array(draft.slots.prefix(5)) : [0, 1].map { offset in
             let s = draft.start.addingTimeInterval(Double(offset) * 86_400)
             return .init(start: s, end: s.addingTimeInterval(draft.end.timeIntervalSince(draft.start)))
         })

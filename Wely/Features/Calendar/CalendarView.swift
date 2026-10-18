@@ -30,6 +30,8 @@ private struct CalendarScreen: View {
     @State private var model: CalendarModel
     @State private var path = NavigationPath()
     @State private var sheet: Sheet?
+    /// « Mon cercle »: the intimate friends' entries under the day's own.
+    @AppStorage("calendar.showsCircle") private var showsCircle = false
 
     init(app: AppModel) {
         self.app = app
@@ -40,18 +42,19 @@ private struct CalendarScreen: View {
         WelyNavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 0) {
-                    MonthHeader(model: model)
+                    MonthHeader(model: model, showsCircle: $showsCircle)
                     MonthGridView(model: model)
                         .padding(.horizontal, 8)
                         .gesture(swipeBetweenMonths)
                     Divider().padding(.top, 8)
-                    DayAgendaView(model: model) { sheet = .birthday($0) }
+                    DayAgendaView(model: model, showsCircle: showsCircle) { sheet = .birthday($0) }
                 }
             }
             .refreshable {
                 async let birthdays: Void = model.loadBirthdays()
                 await model.load()
                 await birthdays
+                if showsCircle { await model.loadCircle() }
             }
             .navigationTitle("Calendrier")
             .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +93,9 @@ private struct CalendarScreen: View {
             }
             .task(id: app.people.myId) { if app.people.myId != nil { await model.load() } }
             .task(id: model.displayedMonth) { await model.loadBirthdays() }
+            .task(id: CircleRequest(month: model.displayedMonth, shown: showsCircle, version: app.eventsVersion)) {
+                if showsCircle { await model.loadCircle() } else { model.clearCircle() }
+            }
             .onChange(of: app.calendarRequest, initial: true) { _, request in
                 guard let request else { return }
                 app.calendarRequest = nil
@@ -145,16 +151,36 @@ private struct CalendarScreen: View {
     }
 }
 
-/// « Octobre 2026 » with the arrows to move between months.
+/// When the circle is reloaded: another month, the toggle, or a change elsewhere.
+private struct CircleRequest: Hashable {
+    let month: Date
+    let shown: Bool
+    let version: Int
+}
+
+/// « Octobre 2026 » with the arrows to move between months, and the « Mon cercle » toggle.
 private struct MonthHeader: View {
     let model: CalendarModel
+    @Binding var showsCircle: Bool
 
     var body: some View {
         HStack {
             Text(model.displayedMonth.formatted(.dateTime.month(.wide).year().locale(.wely)).capitalized)
                 .font(.wely.title2.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .contentTransition(.numericText())
             Spacer()
+            Button { withAnimation(.snappy) { showsCircle.toggle() } } label: {
+                Label("Mon cercle", systemImage: showsCircle ? "heart.circle.fill" : "heart.circle")
+                    .font(.wely.caption.weight(.semibold))
+                    .foregroundStyle(showsCircle ? AnyShapeStyle(.white) : AnyShapeStyle(Theme.primary))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(showsCircle ? AnyShapeStyle(Theme.gradient) : AnyShapeStyle(Theme.blue.opacity(0.1)), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(showsCircle ? [.isButton, .isSelected] : .isButton)
+            .accessibilityHint("Montre l'agenda de tes intimes")
             Button { withAnimation { model.showMonth(offset: -1) } } label: {
                 Image(systemName: "chevron.left").frame(width: 36, height: 36)
             }
@@ -277,6 +303,7 @@ private struct DayCell: View {
 /// The selected day's birthdays and events, or why there are none.
 private struct DayAgendaView: View {
     let model: CalendarModel
+    var showsCircle = false
     let onBirthday: (BirthdayOccurrence) -> Void
 
     var body: some View {
@@ -335,8 +362,37 @@ private struct DayAgendaView: View {
                     .padding(.horizontal)
                 }
             }
+
+            if showsCircle { circle }
         }
         .padding(.bottom, 24)
+    }
+
+    /// « Mon cercle »: what the intimate friends have that day, as much as they disclose.
+    private var circle: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Mon cercle", systemImage: "heart.circle.fill")
+                .font(.wely.caption.weight(.semibold))
+                .foregroundStyle(Theme.gradient)
+                .textCase(.uppercase)
+            let entries = model.selectedCircle
+            if entries.isEmpty {
+                Text("Tes intimes n'ont rien de prévu ce jour-là.")
+                    .font(.wely.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(entries, id: \.self) { entry in
+                    if let eventId = entry.eventId {
+                        NavigationLink(value: Route.eventId(eventId)) { CircleRow(entry: entry) }
+                            .buttonStyle(.plain)
+                    } else {
+                        CircleRow(entry: entry)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 
     private func rows(_ entries: [CalendarEntry]) -> some View {
@@ -346,6 +402,40 @@ private struct DayAgendaView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+}
+
+/// An intimate friend's entry: their face, the title or « Occupé », the time.
+private struct CircleRow: View {
+    @Environment(AppModel.self) private var app
+    let entry: CircleEntry
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AvatarView(userId: entry.userId, size: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.allDay ? "Toute la journée" : Date.timeRange(entry.start, entry.end))
+                    .font(.wely.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text("\(app.people.person(entry.userId).name) · \(entry.title ?? "Occupé")")
+                    .font(.wely.subheadline.weight(entry.title == nil ? .regular : .semibold))
+                    .foregroundStyle(entry.title == nil ? Theme.ink2 : Theme.ink)
+                    .lineLimit(2)
+                if let location = entry.location, !location.isEmpty {
+                    Label(location, systemImage: "mappin.and.ellipse")
+                        .font(.wely.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            if entry.eventId != nil {
+                Image(systemName: "chevron.right").font(.wely.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(10)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.gradient.opacity(0.35), lineWidth: 1))
     }
 }
 

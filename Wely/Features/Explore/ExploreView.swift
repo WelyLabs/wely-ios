@@ -35,44 +35,71 @@ struct ExploreView: View {
     }
 }
 
-/// The upcoming events the user may join, soonest first, grouped by day.
+/// Close friends to see again, then the upcoming events the user may join: those with the
+/// closest friends first, the rest by day.
 private struct FeedList: View {
     @Environment(AppModel.self) private var app
     @State private var state: Loadable<[FeedEvent]> = .loading
     @State private var joined: Set<String> = []
+    @State private var reunions: [ReunionCandidate] = []
+    @State private var outing: EventFormView.Draft?
+    @State private var outingFriend: String?
 
     var body: some View {
         LoadableView(state: state, retry: load) { events in
-            if events.isEmpty {
-                EmptyStateView(title: "Rien de prévu pour l'instant", systemImage: "sparkles", message: "Quand vos amis organisent des sorties, elles apparaissent ici.")
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
-                        ForEach(grouped(events), id: \.0) { day, items in
-                            Section {
-                                ForEach(items) { event in
-                                    NavigationLink(value: Route.event(event)) {
-                                        EventCard(event: event)
-                                            .overlay(alignment: .topTrailing) { joinBadge(event) }
-                                    }
-                                    .buttonStyle(.plain)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
+                    if !reunions.isEmpty {
+                        ReunionCard(candidates: reunions, onPropose: propose, onDismiss: dismiss)
+                            .padding(.top, 8)
+                            .transition(.opacity)
+                    }
+                    if events.isEmpty {
+                        EmptyStateView(title: "Rien de prévu pour l'instant", systemImage: "sparkles", message: "Quand vos amis organisent des sorties, elles apparaissent ici.")
+                    }
+                    ForEach(FeedRanking.sections(events), id: \.title) { section in
+                        Section {
+                            ForEach(section.events) { event in
+                                NavigationLink(value: Route.event(event)) {
+                                    EventCard(event: event)
+                                        .overlay(alignment: .topTrailing) { joinBadge(event) }
                                 }
-                            } header: {
-                                Text(day)
-                                    .font(.wely.headline)
-                                    .padding(.vertical, 6)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Theme.canvas)
+                                .buttonStyle(.plain)
                             }
+                        } header: {
+                            Text(section.title)
+                                .font(.wely.headline)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Theme.canvas)
                         }
                     }
-                    .padding(.horizontal)
                 }
-                .background(Theme.canvas)
+                .padding(.horizontal)
+                .animation(.default, value: reunions)
             }
+            .background(Theme.canvas)
         }
         .refreshable { await load() }
         .task(id: app.eventsVersion) { await load() }
+        .sheet(item: $outing) { draft in
+            EventFormView(draft: draft) { created in
+                // Planned: no need to suggest them again here.
+                if let friend = outingFriend { reunions.removeAll { $0.friendId == friend } }
+                app.eventsChanged()
+                app.open(.event(created.id))
+            }
+        }
+    }
+
+    private func propose(_ candidate: ReunionCandidate) async {
+        outingFriend = candidate.friendId
+        outing = await OutingProposal.draft(with: candidate.friendId, events: app.events)
+    }
+
+    private func dismiss(_ candidate: ReunionCandidate) async throws {
+        try await app.events.dismissReunion(candidate.friendId)
+        reunions.removeAll { $0.friendId == candidate.friendId }
     }
 
     @ViewBuilder
@@ -108,23 +135,17 @@ private struct FeedList: View {
 
     private func load() async {
         do {
-            async let feed = app.events.feed()
+            async let feed = app.events.feed(byAffinity: true)
             async let mine = app.events.subscribed()
+            // Without them, the feed shows as before.
+            async let reunions = app.events.reunions()
             let events = try await feed
             joined = Set((try? await mine)?.map(\.id) ?? [])
+            self.reunions = Array(((try? await reunions) ?? []).prefix(3))
             state = .loaded(events.filter { !$0.isPast })
         } catch {
             if state.value == nil { state = .failed(error.localizedDescription) }
         }
-    }
-
-    private func grouped(_ events: [FeedEvent]) -> [(String, [FeedEvent])] {
-        var result: [(String, [FeedEvent])] = []
-        for event in events.sorted(by: { $0.startDate < $1.startDate }) {
-            let label = event.isOpenPoll ? "Date à fixer" : event.startDate.dayLabel()
-            if let index = result.firstIndex(where: { $0.0 == label }) { result[index].1.append(event) } else { result.append((label, [event])) }
-        }
-        return result
     }
 }
 
