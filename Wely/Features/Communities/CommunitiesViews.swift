@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// My communities, and public ones to discover.
@@ -83,13 +84,14 @@ struct CommunityRow: View {
     }
 }
 
-/// A community's initials on its colour.
+/// A community's picture, or its initials on its colour while there is none or it loads.
 struct CommunityBadge: View {
     let community: Community
     var size: CGFloat = 44
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.28)
+        let shape = RoundedRectangle(cornerRadius: size * 0.28)
+        shape
             .fill(EventTint.gradient(for: community.communityId))
             .frame(width: size, height: size)
             .overlay {
@@ -97,6 +99,18 @@ struct CommunityBadge: View {
                     .font(.system(size: size * 0.36, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
+            .overlay {
+                if let url = community.pictureUrl.flatMap(URL.init(string:)) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.clear
+                    }
+                    .frame(width: size, height: size)
+                    .clipShape(shape)
+                }
+            }
+            .accessibilityHidden(true)
     }
 }
 
@@ -116,6 +130,8 @@ struct CommunityDetailView: View {
     @State private var inviting = false
     @State private var confirmingLeave = false
     @State private var confirmingDelete = false
+    @State private var pictureItem: PhotosPickerItem?
+    @State private var savingPicture = false
     @State private var error: String?
 
     var body: some View {
@@ -163,12 +179,35 @@ struct CommunityDetailView: View {
         .task { await load() }
         .refreshable { await load() }
         .errorAlert($error)
+        .onChange(of: pictureItem) { _, item in
+            guard let item else { return }
+            Task { await uploadPicture(item) }
+        }
     }
 
     private func header(_ community: Community) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
-                CommunityBadge(community: community, size: 64)
+                if community.isAdmin {
+                    // Read here: PhotosPicker's label closure is not main-actor isolated.
+                    let saving = savingPicture
+                    PhotosPicker(selection: $pictureItem, matching: .images) {
+                        CommunityBadge(community: community, size: 64)
+                            .overlay { if saving { ProgressView().tint(.white) } }
+                            .overlay(alignment: .bottomTrailing) {
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .padding(6)
+                                    .background(.regularMaterial, in: Circle())
+                                    .offset(x: 6, y: 6)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(savingPicture)
+                    .accessibilityLabel("Changer l'image de la communauté")
+                } else {
+                    CommunityBadge(community: community, size: 64)
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(community.name).font(.wely.title3.bold())
                     Label("\(community.visibility.label) · \(community.memberCount) membre\(community.memberCount > 1 ? "s" : "")",
@@ -265,6 +304,10 @@ struct CommunityDetailView: View {
             Menu {
                 if community?.isAdmin == true {
                     Button { editing = true } label: { Label("Modifier", systemImage: "pencil") }
+                    PhotosPicker(selection: $pictureItem, matching: .images) { Label("Changer l'image", systemImage: "photo") }
+                    if community?.pictureUrl != nil {
+                        Button { Task { await removePicture() } } label: { Label("Retirer l'image", systemImage: "photo.badge.minus") }
+                    }
                 }
                 Button { confirmingLeave = true } label: { Label("Quitter", systemImage: "rectangle.portrait.and.arrow.right") }
                 if community?.isAdmin == true {
@@ -300,6 +343,20 @@ struct CommunityDetailView: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    /// wely-media crops it square; sending more than 1024 px only costs the upload.
+    private func uploadPicture(_ item: PhotosPickerItem) async {
+        savingPicture = true
+        defer { savingPicture = false; pictureItem = nil }
+        do {
+            let jpeg = try await PhotoLoader.jpeg(from: item, maxSide: 1024)
+            community = try await app.social.uploadCommunityPicture(communityId, jpeg: jpeg)
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func removePicture() async {
+        do { community = try await app.social.removeCommunityPicture(communityId) } catch { self.error = error.localizedDescription }
     }
 
     private func remove(_ member: CommunityMember) async {

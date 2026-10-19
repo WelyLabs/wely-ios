@@ -27,6 +27,8 @@ struct Community: Codable, Hashable, Identifiable, Sendable {
     let role: CommunityRole?
     @DefaultEmpty var friendMembers: [UserNode] = []
     let friendMemberCount: Int?
+    /// A signed URL of its picture, valid one hour; nil when it has none: the initials stand in.
+    var pictureUrl: String? = nil
 
     var id: String { communityId }
     var isMember: Bool { role != nil }

@@ -240,6 +240,21 @@ struct DemoStore {
         case ("POST", "social-service", let r) where r.count == 3 && r[0] == "communities" && r[2] == "leave":
             memberships.removeValue(forKey: r[1])
             return ok(CommunityLeaveResult(communityDeleted: false, newAdminId: nil))
+        case ("POST", "social-service", let r) where r.count == 3 && r[0] == "communities" && r[2] == "picture":
+            guard memberships[r[1]] == .admin else { return (403, json(["code": "SCL-BUS-011"])) }
+            guard let index = communities.firstIndex(where: { $0.communityId == r[1] }), let jpeg = Self.uploadedFile(in: body) else {
+                return (400, json(["code": "SCL-BUS-020"]))
+            }
+            // Kept on disk, so AsyncImage loads it as it would a signed URL.
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("demo-community-\(r[1])-\(UUID().uuidString).jpg")
+            guard (try? jpeg.write(to: file)) != nil else { return (502, json(["code": "SCL-TEC-004"])) }
+            communities[index].pictureUrl = file.absoluteString
+            return ok(withRole(communities[index]))
+        case ("DELETE", "social-service", let r) where r.count == 3 && r[0] == "communities" && r[2] == "picture":
+            guard memberships[r[1]] == .admin else { return (403, json(["code": "SCL-BUS-011"])) }
+            guard let index = communities.firstIndex(where: { $0.communityId == r[1] }) else { return (404, Data()) }
+            communities[index].pictureUrl = nil
+            return ok(withRole(communities[index]))
         case ("GET", "social-service", let r) where r.count == 3 && r[0] == "communities" && r[2] == "members":
             var members = [CommunityMember(userId: "sarah", userName: "sarah", hashtag: "7712", profilePicUrl: nil, role: .admin, joinedAt: at(-90, 10)),
                            CommunityMember(userId: "nathan", userName: "nathan", hashtag: "3345", profilePicUrl: nil, role: .member, joinedAt: at(-60, 10))]
@@ -573,10 +588,19 @@ struct DemoStore {
         }
     }
 
+    /// The bytes of a multipart body's one file: after its part's headers, up to the closing boundary.
+    static func uploadedFile(in body: Data?) -> Data? {
+        guard let body, let headersEnd = body.range(of: Data("\r\n\r\n".utf8)),
+              let closing = body.range(of: Data("\r\n--".utf8), options: .backwards, in: headersEnd.upperBound..<body.endIndex),
+              closing.lowerBound > headersEnd.upperBound else { return nil }
+        return body.subdata(in: headersEnd.upperBound..<closing.lowerBound)
+    }
+
     private func withRole(_ community: Community) -> Community {
         Community(communityId: community.communityId, name: community.name, description: community.description, interests: community.interests,
                   visibility: community.visibility, createdAt: community.createdAt, memberCount: community.memberCount + (memberships[community.communityId] != nil && community.role == nil ? 1 : 0),
-                  role: memberships[community.communityId], friendMembers: community.friendMembers, friendMemberCount: community.friendMemberCount)
+                  role: memberships[community.communityId], friendMembers: community.friendMembers, friendMemberCount: community.friendMemberCount,
+                  pictureUrl: community.pictureUrl)
     }
 
     private func conversation(_ id: String, _ type: ConversationType, with others: [String], title: String? = nil, eventId: String? = nil,

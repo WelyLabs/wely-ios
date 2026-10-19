@@ -88,6 +88,11 @@ final class APIClient {
         _ = try await send(request("DELETE", path, query: query))
     }
 
+    /// For a DELETE that answers with the resource as it now is.
+    func deleting<T: Decodable>(_ path: String) async throws -> T {
+        try await decode(send(request("DELETE", path)))
+    }
+
     func upload<T: Decodable>(_ path: String, method: String = "POST", file: UploadFile, fields: [String: String] = [:]) async throws -> T {
         let boundary = "wely-\(UUID().uuidString)"
         var body = Data()
