@@ -47,6 +47,23 @@ enum EventKind: String, Codable, Sendable {
 }
 
 /// A point on Earth, in decimal degrees.
+/// A new event's date already behind, as wely-events refuses it (EVT-BUS-038).
+nonisolated enum PastDate {
+    /// How far behind the clock a start may be: the time spent on the form.
+    static let grace: TimeInterval = 5 * 60
+    static let message = "Cette date est déjà passée : choisissez un moment à venir."
+
+    /// A timed start more than `grace` behind; all day, a last day before today.
+    static func isPast(start: Date, end: Date, allDay: Bool, now: Date = .now, calendar: Calendar) -> Bool {
+        allDay ? calendar.startOfDay(for: end) < calendar.startOfDay(for: now) : start < now.addingTimeInterval(-grace)
+    }
+
+    /// A poll slot already started: wely-events takes proposals to come only.
+    static func hasPastSlot(_ slots: [EventCreateRequest.Slot], now: Date = .now) -> Bool {
+        slots.contains { $0.start < now }
+    }
+}
+
 struct Coordinates: Codable, Hashable, Sendable {
     let latitude: Double
     let longitude: Double

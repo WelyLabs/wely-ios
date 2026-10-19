@@ -111,10 +111,16 @@ struct EventFormView: View {
     /// A surprise may go without a place for now: friends choose it together.
     private var needsLocation: Bool { !isSurprise }
 
+    /// A date already behind: said under the dates, and « Créer » stays off.
+    private var isPast: Bool {
+        isPoll ? PastDate.hasPastSlot(slots) : PastDate.isPast(start: start, end: end, allDay: allDay, calendar: .wely)
+    }
+
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
             && (!needsLocation || !location.trimmingCharacters(in: .whitespaces).isEmpty)
             && (isPoll ? (2...5).contains(slots.count) && slots.allSatisfy { $0.end > $0.start } : allDay || end > start)
+            && !isPast
     }
 
     var body: some View {
@@ -176,7 +182,11 @@ struct EventFormView: View {
                         }
                     }
                 } footer: {
-                    if isPoll {
+                    if isPast {
+                        Label(isPoll ? "Un créneau est déjà passé : proposez des dates à venir." : PastDate.message,
+                              systemImage: "clock.badge.exclamationmark")
+                            .foregroundStyle(.red)
+                    } else if isPoll {
                         Text("Proposez 2 à 5 créneaux : les invités votent, vous fixez la date ensuite.")
                     } else if !conflicts.isEmpty {
                         Label("Vous avez déjà : \(conflicts.map(\.title).joined(separator: ", "))", systemImage: "exclamationmark.triangle.fill")

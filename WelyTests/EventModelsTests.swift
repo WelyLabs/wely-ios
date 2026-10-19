@@ -110,4 +110,37 @@ struct EventModelsTests {
         #expect(config.tokenEndpoint.absoluteString == "http://kc/realms/wely-realm/protocol/openid-connect/token")
         #expect(config.apiURL.absoluteString == "http://gw/api/v1")
     }
+
+    @Test func aStartMoreThanFiveMinutesBehindIsPast() {
+        var paris = Calendar(identifier: .gregorian)
+        paris.timeZone = TimeZone(identifier: "Europe/Paris")!
+        let now = ISO8601DateFormatter().date(from: "2026-10-19T14:00:00Z")!
+        let behind = now.addingTimeInterval(-6 * 60)
+        let justBehind = now.addingTimeInterval(-4 * 60)
+        #expect(PastDate.isPast(start: behind, end: now, allDay: false, now: now, calendar: paris))
+        #expect(!PastDate.isPast(start: justBehind, end: now, allDay: false, now: now, calendar: paris))
+    }
+
+    @Test func anAllDayEventIsPastOnlyOnceItsLastDayIsOver() {
+        var paris = Calendar(identifier: .gregorian)
+        paris.timeZone = TimeZone(identifier: "Europe/Paris")!
+        let now = ISO8601DateFormatter().date(from: "2026-10-19T20:00:00Z")!
+        let thisMorning = ISO8601DateFormatter().date(from: "2026-10-19T06:00:00Z")!
+        let yesterday = ISO8601DateFormatter().date(from: "2026-10-18T10:00:00Z")!
+        #expect(!PastDate.isPast(start: thisMorning, end: thisMorning, allDay: true, now: now, calendar: paris))
+        #expect(!PastDate.isPast(start: yesterday, end: thisMorning, allDay: true, now: now, calendar: paris))
+        #expect(PastDate.isPast(start: yesterday, end: yesterday, allDay: true, now: now, calendar: paris))
+    }
+
+    @Test func aPollWithASlotAlreadyStartedIsPast() {
+        let now = ISO8601DateFormatter().date(from: "2026-10-19T14:00:00Z")!
+        let later = EventCreateRequest.Slot(start: now.addingTimeInterval(3600), end: now.addingTimeInterval(7200))
+        let started = EventCreateRequest.Slot(start: now.addingTimeInterval(-60), end: now.addingTimeInterval(3600))
+        #expect(!PastDate.hasPastSlot([later], now: now))
+        #expect(PastDate.hasPastSlot([later, started], now: now))
+    }
+
+    @Test func thePastDateRefusalIsWorded() {
+        #expect(ErrorMessages.text(for: "EVT-BUS-038") == PastDate.message)
+    }
 }

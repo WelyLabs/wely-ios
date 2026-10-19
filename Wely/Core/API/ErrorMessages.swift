@@ -17,7 +17,9 @@ nonisolated enum ErrorMessages {
         case "SCL-BUS-020": "Ce fichier n'est pas une image que l'on peut utiliser (JPEG, PNG, GIF ou BMP)."
         case "SCL-BUS-021": "Cette image est trop lourde : 10 Mo au maximum."
         case "SCL-TEC-004": "L'image n'a pas pu être enregistrée. Réessayez dans un instant."
+        case "EVT-BUS-014": "Les créneaux proposés ne sont pas valides : chacun doit être à venir et différent des autres."
         case "EVT-BUS-024": "Seuls les membres de la communauté peuvent voir et publier ses événements."
+        case "EVT-BUS-038": PastDate.message
         case "USR-BUS-010": "Pour supprimer votre compte, confirmez d'abord votre mot de passe."
         case "USR-BUS-011": "Le compte de démonstration ne peut pas être supprimé."
         case "USR-BUS-014": "La suppression du compte est indisponible pour le moment."
