@@ -474,12 +474,19 @@ private struct PollView: View {
                         AvatarStack(userIds: slot.yes, limit: 6, size: 22)
                     }
                     if isOrganizer {
-                        AsyncButton {
-                            onFixed(try await app.events.fixDate(event.id, slotId: slot.id))
-                        } label: {
-                            Label("Fixer cette date", systemImage: "pin.fill").font(.wely.caption.bold())
+                        // A slot gone by while the poll stayed open: the date is fixed on one to come.
+                        if slot.start < Date.now.addingTimeInterval(-PastDate.grace) {
+                            Label("Créneau passé", systemImage: "clock.arrow.circlepath")
+                                .font(.wely.caption.bold())
+                                .foregroundStyle(Theme.ink2)
+                        } else {
+                            AsyncButton {
+                                onFixed(try await app.events.fixDate(event.id, slotId: slot.id))
+                            } label: {
+                                Label("Fixer cette date", systemImage: "pin.fill").font(.wely.caption.bold())
+                            }
+                            .buttonStyle(.welySecondary)
                         }
-                        .buttonStyle(.welySecondary)
                     }
                 }
                 .padding(12)
@@ -637,10 +644,16 @@ private struct EventEditSheet: View {
 
     private var datesChanged: Bool { range.start != event.startDate || range.end != event.endDate }
 
+    /// New dates already behind: said under them, and the save stays off.
+    private var movesIntoPast: Bool {
+        datesChanged && PastDate.isPast(start: start, end: end, allDay: event.allDay, calendar: .wely)
+    }
+
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
             && (event.kind == .surprise || !location.trimmingCharacters(in: .whitespaces).isEmpty)
             && (event.allDay || end > start)
+            && !movesIntoPast
     }
 
     var body: some View {
@@ -665,7 +678,10 @@ private struct EventEditSheet: View {
                 } header: {
                     Text("Quand")
                 } footer: {
-                    if !conflicts.isEmpty {
+                    if movesIntoPast {
+                        Label(PastDate.message, systemImage: "clock.badge.exclamationmark")
+                            .foregroundStyle(.red)
+                    } else if !conflicts.isEmpty {
                         Label("Chevauche \(conflicts.map(\.title).joined(separator: ", "))", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
                     } else if datesChanged {
