@@ -45,6 +45,12 @@ struct SocialService {
     func updateCommunity(_ id: String, _ request: CommunityRequest) async throws -> Community { try await api.put("\(communities)/\(id)", body: request) }
     func deleteCommunity(_ id: String) async throws { try await api.delete("\(communities)/\(id)") }
     func join(_ id: String) async throws -> Community { try await api.post("\(communities)/\(id)/join") }
+    /// Admins only; wely-media crops it to a 512 px square.
+    func uploadCommunityPicture(_ id: String, jpeg: Data) async throws -> Community {
+        try await api.upload("\(communities)/\(id)/picture", file: UploadFile(fileName: "picture.jpg", data: jpeg))
+    }
+    /// Admins only: the community goes back to its initials.
+    func removeCommunityPicture(_ id: String) async throws -> Community { try await api.deleting("\(communities)/\(id)/picture") }
     func leaveCommunity(_ id: String, deleteIfLast: Bool) async throws -> CommunityLeaveResult {
         try await api.post("\(communities)/\(id)/leave", body: ["deleteIfLast": deleteIfLast])
     }
