@@ -21,10 +21,18 @@ struct EventDetailView: View {
     @State private var editing = false
     @State private var confirmingDelete = false
     @State private var addingToCalendar = false
+    @State private var inviting = false
 
     private var myId: String? { app.people.myId }
     private var isOrganizer: Bool { event?.organizerId == myId }
     private var isParticipant: Bool { participants?.participantIds.contains(myId ?? "") == true || isOrganizer }
+    /// Invited and not answered yet: the page offers to join or to decline.
+    private var isInvited: Bool { !isParticipant && participants?.invitedIds.contains(myId ?? "") == true }
+    /// The organizer invites friends one by one, but not to a community's event, a birthday, or what is over.
+    private var canInvite: Bool {
+        guard let event, isOrganizer else { return false }
+        return event.communityId == nil && event.isJoinable && (event.isOpenPoll || !event.isPast)
+    }
 
     var body: some View {
         Group {
@@ -51,6 +59,14 @@ struct EventDetailView: View {
         }
         .sheet(isPresented: $leaving) {
             if let event, let participants { LeaveSheet(event: event, participants: participants) { result in handleLeave(result) } }
+        }
+        .sheet(isPresented: $inviting) {
+            if let event {
+                EventInviteSheet(event: event, participantIds: participants?.participantIds ?? [],
+                                 invitedIds: participants?.invitedIds ?? []) {
+                    Task { participants = try? await app.events.participants(eventId) }
+                }
+            }
         }
         .sheet(isPresented: $editing) {
             if let event {
@@ -88,6 +104,7 @@ struct EventDetailView: View {
                     }
 
                 header(event)
+                if isInvited { invitationBanner(event) }
                 primaryAction(event)
 
                 if !conflicts.isEmpty, isParticipant {
@@ -168,9 +185,20 @@ struct EventDetailView: View {
                 .pickerStyle(.segmented)
             }
         } else if isOrganizer {
-            Label("Vous organisez", systemImage: "star.fill")
-                .font(.wely.subheadline.bold())
-                .foregroundStyle(Theme.orange)
+            HStack {
+                Label("Vous organisez", systemImage: "star.fill")
+                    .font(.wely.subheadline.bold())
+                    .foregroundStyle(Theme.orange)
+                Spacer()
+                if canInvite {
+                    Button { inviting = true } label: {
+                        let pending = participants?.invitedIds.count ?? 0
+                        Label(pending > 0 ? "Inviter · \(pending)" : "Inviter des amis", systemImage: "person.badge.plus")
+                    }
+                    .buttonStyle(.welySecondary)
+                    .font(.wely.subheadline)
+                }
+            }
         } else if isParticipant {
             HStack {
                 Label("Inscrit", systemImage: "checkmark.circle.fill")
@@ -188,6 +216,22 @@ struct EventDetailView: View {
             }
             .buttonStyle(.welyPrimary)
         }
+    }
+
+    /// The organizer invited the viewer: join through the usual button, or decline here.
+    private func invitationBanner(_ event: FeedEvent) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "envelope.fill").foregroundStyle(Theme.blue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(app.people.person(event.organizerId).name) vous invite").font(.wely.headline)
+                Text("Rejoignez l'événement, ou déclinez l'invitation.").font(.wely.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer()
+            AsyncButton("Décliner", role: .destructive) { try await declineInvitation() }
+                .font(.wely.subheadline)
+        }
+        .padding(12)
+        .background(Theme.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func whenAndWhere(_ event: FeedEvent) -> some View {
@@ -302,6 +346,9 @@ struct EventDetailView: View {
                         Label("Partager", systemImage: "square.and.arrow.up")
                     }
                 }
+                if canInvite {
+                    Button { inviting = true } label: { Label("Inviter des amis", systemImage: "person.badge.plus") }
+                }
                 if isOrganizer {
                     if event?.image != nil {
                         Button(role: .destructive) { Task { await removeCover() } } label: { Label("Retirer la couverture", systemImage: "photo.badge.minus") }
@@ -377,6 +424,14 @@ struct EventDetailView: View {
             app.eventsChanged()
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+
+    /// Off the invited: a private event is no longer the viewer's to see, so the page closes; any other stays.
+    private func declineInvitation() async throws {
+        guard let myId else { return }
+        try await app.events.withdrawInvitation(eventId, userId: myId)
+        app.eventsChanged()
+        if event?.visibility == .private { dismiss() } else { participants = try? await app.events.participants(eventId) }
     }
 
     private func handleLeave(_ result: LeaveResult) {
@@ -743,5 +798,89 @@ private struct EventEditSheet: View {
         }
         onSaved(updated)
         dismiss()
+    }
+}
+
+/// Invites friends one by one: wely-events lets each see the event, private or not, then a
+/// direct message carries its link, which the chat shows as an invitation card. An invitation
+/// can be taken back.
+private struct EventInviteSheet: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    let event: FeedEvent
+    let participantIds: [String]
+    let onChange: () -> Void
+    @State private var friends: [UserNode] = []
+    @State private var invited: Set<String>
+    @State private var notes: [String: String] = [:]
+
+    init(event: FeedEvent, participantIds: [String], invitedIds: [String], onChange: @escaping () -> Void) {
+        self.event = event
+        self.participantIds = participantIds
+        self.onChange = onChange
+        _invited = State(initialValue: Set(invitedIds))
+    }
+
+    private var candidates: [UserNode] {
+        let taken = Set(participantIds + [event.organizerId])
+        return friends.filter { !taken.contains($0.userId) }
+    }
+
+    var body: some View {
+        WelyNavigationStack {
+            List {
+                Section {
+                    if candidates.isEmpty { Text("Tous vos amis participent déjà.").foregroundStyle(.secondary) }
+                    ForEach(candidates) { friend in
+                        PersonRow(userId: friend.userId, subtitle: notes[friend.userId]) {
+                            if invited.contains(friend.userId) {
+                                HStack(spacing: 8) {
+                                    Label("Invité", systemImage: "checkmark").font(.wely.caption).foregroundStyle(.green)
+                                    AsyncButton("Retirer") { try await withdraw(friend) }
+                                        .font(.wely.caption)
+                                }
+                            } else {
+                                AsyncButton("Inviter") { try await invite(friend) }
+                                    .buttonStyle(.welySecondary)
+                                    .font(.wely.caption)
+                            }
+                        }
+                    }
+                } footer: {
+                    Text(event.visibility == .private
+                         ? "Chaque ami reçoit l'invitation par message et voit l'événement, même privé."
+                         : "Chaque ami reçoit l'invitation par message.")
+                }
+            }
+            .navigationTitle("Inviter des amis")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("OK") { dismiss() } } }
+            .task {
+                friends = ((try? await app.social.friends()) ?? []).sorted { $0.userName.localizedCompare($1.userName) == .orderedAscending }
+                app.people.remember(friends.map(\.person))
+            }
+        }
+    }
+
+    private func invite(_ friend: UserNode) async throws {
+        _ = try await app.events.invite(event.id, friendId: friend.userId)
+        invited.insert(friend.userId)
+        onChange()
+        // Stored either way: the friend sees the event, only the message may fail.
+        do {
+            let conversation = try await app.chat.conversation(with: friend.userId)
+            _ = try await app.chatSocket.send(ChatInput(receiverId: friend.userId, conversationId: conversation.id,
+                                                        content: EventInvitation.message(for: event)))
+            notes[friend.userId] = nil
+        } catch {
+            notes[friend.userId] = "Invitation enregistrée, message non envoyé"
+        }
+    }
+
+    private func withdraw(_ friend: UserNode) async throws {
+        try await app.events.withdrawInvitation(event.id, userId: friend.userId)
+        invited.remove(friend.userId)
+        notes[friend.userId] = nil
+        onChange()
     }
 }
