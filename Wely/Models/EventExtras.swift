@@ -39,6 +39,8 @@ struct EventParticipants: Codable, Hashable, Sendable {
     let count: Int
     @DefaultEmpty var participantIds: [String] = []
     @DefaultEmpty var friendsGoingIds: [String] = []
+    /// Pending invitations: every one for the organizer, the viewer's own for an invitee, none otherwise.
+    @DefaultEmpty var invitedIds: [String] = []
 }
 
 struct EventCreateRequest: Codable, Sendable {

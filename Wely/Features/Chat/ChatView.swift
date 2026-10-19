@@ -306,7 +306,9 @@ private struct MessageBubble: View {
                     if let photo = message.photo {
                         photoView(photo)
                     }
-                    if !message.content.isEmpty {
+                    if let eventId = EventInvitation.eventId(in: message.content) {
+                        invitationCard(eventId)
+                    } else if !message.content.isEmpty {
                         Text(message.content)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -334,6 +336,25 @@ private struct MessageBubble: View {
                 if !mine { Spacer(minLength: 48) }
             }
         }
+    }
+
+    /// An invitation to an event: a card that opens it rather than a bare link.
+    private func invitationCard(_ eventId: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Invitation à un événement", systemImage: "calendar.badge.plus")
+                .font(.wely.caption.weight(.semibold))
+                .foregroundStyle(Theme.blue)
+            let intro = EventInvitation.intro(of: message.content)
+            if !intro.isEmpty { Text(intro) }
+            NavigationLink(value: Route.eventId(eventId)) {
+                Text("Voir l'événement").font(.wely.subheadline.weight(.semibold))
+            }
+            .buttonStyle(.welyPrimary)
+        }
+        .padding(12)
+        .frame(maxWidth: 260, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+        .opacity(message.pending ? 0.6 : 1)
     }
 
     @ViewBuilder

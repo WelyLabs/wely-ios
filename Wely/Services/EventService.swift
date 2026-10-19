@@ -38,6 +38,13 @@ struct EventService {
     func update(_ id: String, _ request: EventUpdateRequest) async throws -> FeedEvent { try await api.put("\(base)/\(id)", body: request) }
     func delete(_ id: String) async throws { try await api.delete("\(base)/\(id)") }
 
+    /// Invites a friend, who then sees the event, private or not; answers who takes part and is invited.
+    func invite(_ id: String, friendId: String) async throws -> EventParticipants {
+        try await api.post("\(base)/\(id)/invitations", body: ["userId": friendId])
+    }
+    /// The organizer takes an invitation back, or the invitee declines it.
+    func withdrawInvitation(_ id: String, userId: String) async throws { try await api.delete("\(base)/\(id)/invitations/\(userId)") }
+
     /// Joins, or leaves when already in (non-organizer).
     func toggleSubscription(_ id: String) async throws -> FeedEvent { try await api.post("\(base)/\(id)/subscribe") }
     func leave(_ id: String, choice: LeaveChoice) async throws -> LeaveResult { try await api.post("\(base)/\(id)/leave", body: choice) }

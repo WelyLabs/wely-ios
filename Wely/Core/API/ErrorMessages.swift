@@ -19,7 +19,10 @@ nonisolated enum ErrorMessages {
         case "SCL-TEC-004": "L'image n'a pas pu être enregistrée. Réessayez dans un instant."
         case "EVT-BUS-014": "Les créneaux proposés ne sont pas valides : chacun doit être à venir et différent des autres."
         case "EVT-BUS-024": "Seuls les membres de la communauté peuvent voir et publier ses événements."
+        case "EVT-BUS-036": "Cette personne ne fait plus partie de vos amis."
         case "EVT-BUS-038": PastDate.message
+        case "EVT-BUS-039": "On ne peut plus inviter à cet événement : il est terminé."
+        case "EVT-BUS-040": "Cette personne participe déjà."
         case "USR-BUS-010": "Pour supprimer votre compte, confirmez d'abord votre mot de passe."
         case "USR-BUS-011": "Le compte de démonstration ne peut pas être supprimé."
         case "USR-BUS-014": "La suppression du compte est indisponible pour le moment."

@@ -41,6 +41,8 @@ struct DemoStore {
     var events: [FeedEvent] = []
     var joined: Set<String> = []
     var participants: [String: [String]] = [:]
+    /// Pending invitations, by event.
+    var invited: [String: [String]] = [:]
     var communities: [Community] = []
     var memberships: [String: CommunityRole] = ["club-auto": .member]
     var conversations: [Conversation] = []
@@ -346,13 +348,28 @@ struct DemoStore {
         case ("GET", "events-service", let r) where r.count == 3 && r[0] == "events" && r[2] == "participants":
             let ids = participants[r[1], default: []]
             let visible = joined.contains(r[1])
-            return ok(EventParticipants(count: ids.count, participantIds: visible ? ids : [], friendsGoingIds: ids.filter { friends[$0] != nil }))
+            let organizes = events.first { $0.id == r[1] }?.organizerId == Self.me
+            let pending = invited[r[1], default: []]
+            return ok(EventParticipants(count: ids.count, participantIds: visible ? ids : [], friendsGoingIds: ids.filter { friends[$0] != nil },
+                                        invitedIds: organizes ? pending : pending.filter { $0 == Self.me }))
+        case ("POST", "events-service", let r) where r.count == 3 && r[0] == "events" && r[2] == "invitations":
+            guard let friendId = decode([String: String].self, body)?["userId"], let event = events.first(where: { $0.id == r[1] }) else { return (400, Data()) }
+            guard event.organizerId == Self.me else { return (403, json(["code": "EVT-BUS-002"])) }
+            guard friends[friendId] != nil else { return (404, json(["code": "EVT-BUS-036"])) }
+            guard !participants[r[1], default: []].contains(friendId) else { return (409, json(["code": "EVT-BUS-040"])) }
+            if !invited[r[1], default: []].contains(friendId) { invited[r[1], default: []].append(friendId) }
+            let ids = participants[r[1], default: []]
+            return ok(EventParticipants(count: ids.count, participantIds: ids, friendsGoingIds: ids.filter { friends[$0] != nil },
+                                        invitedIds: invited[r[1], default: []]))
+        case ("DELETE", "events-service", let r) where r.count == 4 && r[0] == "events" && r[2] == "invitations":
+            invited[r[1]]?.removeAll { $0 == r[3] }
+            return (204, Data())
         case ("POST", "events-service", let r) where r.count == 3 && r[0] == "events" && r[2] == "subscribe":
             let id = r[1]
             if joined.contains(id) {
                 joined.remove(id); participants[id]?.removeAll { $0 == Self.me }
             } else {
-                joined.insert(id); participants[id, default: []].append(Self.me)
+                joined.insert(id); participants[id, default: []].append(Self.me); invited[id]?.removeAll { $0 == Self.me }
             }
             return ok(events.first { $0.id == id }!)
         case ("POST", "events-service", let r) where r.count == 3 && r[0] == "events" && r[2] == "leave":
