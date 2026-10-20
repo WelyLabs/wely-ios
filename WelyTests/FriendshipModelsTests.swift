@@ -318,7 +318,7 @@ struct FriendshipServiceTests {
     }
 
     @Test func dismissingAStrangerFails() async {
-        let (app, _) = signedIn([(404, #"{"code":"EVT-BUS-040"}"#)])
+        let (app, _) = signedIn([(404, #"{"code":"EVT-BUS-036"}"#)])
         await #expect(throws: APIError.self) { try await app.events.dismissReunion("nobody") }
     }
 

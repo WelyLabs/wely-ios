@@ -280,11 +280,11 @@ struct DemoStore {
         case ("GET", "events-service", ["events", "me", "reunions"]):
             return ok(reunions().filter { !dismissedReunions.contains($0.friendId) })
         case ("POST", "events-service", let r) where r.count == 5 && r[0] == "events" && r[2] == "reunions" && r[4] == "dismiss":
-            guard friends[r[3]] != nil else { return (404, json(["code": "EVT-BUS-040"])) }
+            guard friends[r[3]] != nil else { return (404, json(["code": "EVT-BUS-036"])) }
             dismissedReunions.insert(r[3])
             return (204, Data())
         case ("GET", "events-service", let r) where r.count == 5 && r[0] == "events" && r[2] == "friendships" && r[4] == "memories":
-            guard let memories = memories(with: r[3]) else { return (404, json(["code": "EVT-BUS-041"])) }
+            guard let memories = memories(with: r[3]) else { return (404, json(["code": "EVT-BUS-036"])) }
             return ok(memories)
         case ("GET", "events-service", ["events", "me", "circle"]): return ok(circle())
         case ("GET", "events-service", ["events", "me", "polls"]): return ok(events.filter(\.isOpenPoll))
