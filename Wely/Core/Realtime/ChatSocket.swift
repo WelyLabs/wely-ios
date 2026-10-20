@@ -61,6 +61,13 @@ final class ChatSocket {
         return data.flatMap { try? JSONDecoder.wely.decode(Message.self, from: $0) }
     }
 
+    /// Why `send` failed, worth an alert: the sentence for a refusal wely-chat gave a known code.
+    /// Nil otherwise (no code, unknown code, transport failure): the failed message's retry says enough.
+    static func refusal(of error: Error) -> String? {
+        guard let code = (error as? RSocketError)?.code else { return nil }
+        return ErrorMessages.text(for: code)
+    }
+
     func disconnect() {
         streamTask?.cancel()
         callTask?.cancel()

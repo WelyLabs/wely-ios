@@ -26,7 +26,11 @@ nonisolated enum ErrorMessages {
         case "USR-BUS-010": "Pour supprimer votre compte, confirmez d'abord votre mot de passe."
         case "USR-BUS-011": "Le compte de démonstration ne peut pas être supprimé."
         case "USR-BUS-014": "La suppression du compte est indisponible pour le moment."
+        case "CHT-BUS-001": "Cette conversation n'existe pas ou ne vous est pas accessible."
         case "CHT-BUS-007": "Cette photo ne peut plus être retirée."
+        case "CHT-BUS-011": "Votre compte a été supprimé."
+        case "CHT-BUS-012": "Cette personne a supprimé son compte : vous pouvez relire la conversation, mais plus y répondre."
+        case "CHT-BUS-013": "Une conversation privée n'est ouverte qu'entre amis."
         default: nil
         }
     }

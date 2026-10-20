@@ -151,14 +151,34 @@ private extension Array where Element == UInt8 {
 enum RSocketError: LocalizedError {
     case notConnected
     case closed
-    case server(code: UInt32, message: String)
+    /// `code` is the RSocket error code (APPLICATION_ERROR...); `problem`, what the frame's data says.
+    case server(code: UInt32, problem: RSocketProblem)
+
+    /// An ERROR frame, its data read as a problem.
+    init(code: UInt32, data: String) {
+        self = .server(code: code, problem: RSocketProblem(payload: data))
+    }
 
     var errorDescription: String? {
         switch self {
         case .notConnected, .closed: "La messagerie n'est pas connectée."
-        case .server(_, let message): message.isEmpty ? "Le message n'a pas pu être envoyé." : message
+        case .server(_, let problem):
+            if let code = problem.code {
+                // A problem's detail is English, for developers: the user reads our own sentence.
+                ErrorMessages.text(for: code) ?? Self.notSent
+            } else {
+                problem.detail.isEmpty ? Self.notSent : problem.detail
+            }
         }
     }
+
+    /// The backend's business code (`CHT-BUS-012`...), when it sent one.
+    var code: String? {
+        if case .server(_, let problem) = self { return problem.code }
+        return nil
+    }
+
+    private static let notSent = "Le message n'a pas pu être envoyé."
 }
 
 /// One RSocket connection over a WebSocket: request/response and request/stream, keep-alive.
@@ -280,7 +300,7 @@ final class RSocketConnection {
                 }
             }
         case let .error(stream, code, message):
-            let error = RSocketError.server(code: code, message: message)
+            let error = RSocketError(code: code, data: message)
             if stream == 0 {
                 tearDown(error, notify: true)
             } else if let continuation = responses.removeValue(forKey: stream) {

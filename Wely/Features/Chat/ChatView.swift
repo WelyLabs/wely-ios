@@ -246,6 +246,8 @@ struct ChatView: View {
             guard let index = messages.firstIndex(where: { $0.id == pending.id }) else { return }
             messages[index].pending = false
             messages[index].failed = true
+            // A refusal retrying will not fix (read-only conversation, friends only...) is said once.
+            if let refusal = ChatSocket.refusal(of: error) { self.error = refusal }
         }
     }
 
