@@ -9,9 +9,11 @@ struct AppConfig: Sendable {
     let keycloakURL: URL
     let webURL: URL
 
-    let realm = "wely-realm"
-    let clientId = "wely-client"
-    /// The OAuth redirect; Keycloak must list it among `wely-client`'s redirect URIs.
+    /// This environment's realm, `wely-<env>`: one Keycloak serves them all.
+    let realm: String
+    /// This environment's client, `wely-<service>-<env>-client`.
+    let clientId: String
+    /// The OAuth redirect; Keycloak must list it among this client's redirect URIs.
     let redirectURI = "wely://oauth-callback"
     let callbackScheme = "wely"
 
@@ -36,10 +38,13 @@ struct AppConfig: Sendable {
 
     static let current = AppConfig(bundle: .main)
 
-    init(gatewayURL: URL, keycloakURL: URL, webURL: URL) {
+    init(gatewayURL: URL, keycloakURL: URL, webURL: URL,
+         realm: String = "wely-local", clientId: String = "wely-web-local-client") {
         self.gatewayURL = gatewayURL
         self.keycloakURL = keycloakURL
         self.webURL = webURL
+        self.realm = realm
+        self.clientId = clientId
     }
 
     init(bundle: Bundle) {
@@ -47,10 +52,18 @@ struct AppConfig: Sendable {
             let value = bundle.object(forInfoDictionaryKey: key) as? String
             return URL(string: value ?? fallback) ?? URL(string: fallback)!
         }
+        // An unset build setting leaves the plist holding "$(WELY_...)", which is not a name.
+        func text(_ key: String, fallback: String) -> String {
+            let value = bundle.object(forInfoDictionaryKey: key) as? String
+            guard let value, !value.isEmpty, !value.hasPrefix("$(") else { return fallback }
+            return value
+        }
         self.init(
             gatewayURL: url("WelyGatewayURL", fallback: "http://localhost:8081"),
             keycloakURL: url("WelyKeycloakURL", fallback: "http://localhost:8080"),
-            webURL: url("WelyWebURL", fallback: "http://localhost")
+            webURL: url("WelyWebURL", fallback: "http://localhost"),
+            realm: text("WelyKeycloakRealm", fallback: "wely-local"),
+            clientId: text("WelyKeycloakClientId", fallback: "wely-web-local-client")
         )
     }
 

@@ -250,8 +250,12 @@
 				TARGETED_DEVICE_FAMILY = 1;
 				WELY_GATEWAY_URL = "http://localhost:8081";
 				"WELY_GATEWAY_URL[sdk=iphoneos*]" = "https://dev-web.welylabs.app";
+				WELY_KEYCLOAK_CLIENT_ID = "wely-web-local-client";
+				"WELY_KEYCLOAK_CLIENT_ID[sdk=iphoneos*]" = "wely-web-dev-client";
+				WELY_KEYCLOAK_REALM = "wely-local";
+				"WELY_KEYCLOAK_REALM[sdk=iphoneos*]" = "wely-dev";
 				WELY_KEYCLOAK_URL = "http://localhost:8080";
-				"WELY_KEYCLOAK_URL[sdk=iphoneos*]" = "https://dev-auth.welylabs.app";
+				"WELY_KEYCLOAK_URL[sdk=iphoneos*]" = "https://auth.welylabs.app";
 				WELY_WEB_URL = "http://localhost";
 				"WELY_WEB_URL[sdk=iphoneos*]" = "https://dev-web.welylabs.app";
 			};
@@ -286,8 +290,12 @@
 				TARGETED_DEVICE_FAMILY = 1;
 				WELY_GATEWAY_URL = "http://localhost:8081";
 				"WELY_GATEWAY_URL[sdk=iphoneos*]" = "https://dev-web.welylabs.app";
+				WELY_KEYCLOAK_CLIENT_ID = "wely-web-local-client";
+				"WELY_KEYCLOAK_CLIENT_ID[sdk=iphoneos*]" = "wely-web-dev-client";
+				WELY_KEYCLOAK_REALM = "wely-local";
+				"WELY_KEYCLOAK_REALM[sdk=iphoneos*]" = "wely-dev";
 				WELY_KEYCLOAK_URL = "http://localhost:8080";
-				"WELY_KEYCLOAK_URL[sdk=iphoneos*]" = "https://dev-auth.welylabs.app";
+				"WELY_KEYCLOAK_URL[sdk=iphoneos*]" = "https://auth.welylabs.app";
 				WELY_WEB_URL = "http://localhost";
 				"WELY_WEB_URL[sdk=iphoneos*]" = "https://dev-web.welylabs.app";
 			};

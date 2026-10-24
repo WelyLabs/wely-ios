@@ -9,6 +9,12 @@
 	<string>$(WELY_KEYCLOAK_URL)</string>
 	<key>WelyWebURL</key>
 	<string>$(WELY_WEB_URL)</string>
+	<!-- One Keycloak serves every environment, one realm each, with a client named after its
+	     service and environment: neither can be a constant in the binary. -->
+	<key>WelyKeycloakRealm</key>
+	<string>$(WELY_KEYCLOAK_REALM)</string>
+	<key>WelyKeycloakClientId</key>
+	<string>$(WELY_KEYCLOAK_CLIENT_ID)</string>
 	<!-- The local stack is plain HTTP on localhost / the LAN. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
