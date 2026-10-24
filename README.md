@@ -1,5 +1,10 @@
 # wely-ios
 
+> One Keycloak serves every environment, one realm each (`wely-dev`, `wely-prod`,
+> `wely-local`), so the realm and the client id come from the `WELY_KEYCLOAK_REALM` and
+> `WELY_KEYCLOAK_CLIENT_ID` build settings rather than being constants: the simulator talks to
+> the local stack, a device build targets dev.
+
 Native iOS client for Wely (SwiftUI, iOS 18+). It talks to the same gateway as wely-web and
 signs in through the same Keycloak realm.
 
@@ -9,10 +14,10 @@ signs in through the same Keycloak realm.
 2. Open `Wely.xcodeproj` in Xcode, pick an iPhone simulator, press ⌘R.
 
 Sign-in happens on the app's own screen: the username and password go to Keycloak's token
-endpoint (direct access grant, enabled on the public client `wely-client`). Signing up and
+endpoint (direct access grant, enabled on the public client `wely-web-<env>-client`). Signing up and
 resetting a password still open Keycloak's pages, with the authorization code flow and PKCE;
 Keycloak must list `wely://oauth-callback` among its redirect URIs (done in
-`wely-gitops-infra/overlays/local/keycloak/wely-realm.json`).
+`wely-gitops-infra/overlays/local/keycloak/wely-realm.json`, which describes `wely-local`).
 
 **Demo mode** — enable the `-WelyDemo` argument in *Product › Scheme › Edit Scheme › Run ›
 Arguments* (Debug only): signed in against an in-memory gateway (`DemoTransport`) with sample
@@ -30,7 +35,7 @@ xcodebuild test -project Wely.xcodeproj -scheme Wely -destination 'platform=iOS 
 URLs are build settings of the `Wely` target (`WELY_GATEWAY_URL`, `WELY_KEYCLOAK_URL`,
 `WELY_WEB_URL`), read at runtime from `Config/Wely-Info.plist`. In the simulator they point
 at `localhost`, which it shares with the Mac; on a real iPhone (`sdk=iphoneos*`), which cannot
-reach the Mac's `localhost`, at the dev infra (`dev-web.welylabs.app`, `dev-auth.welylabs.app`).
+reach the Mac's `localhost`, at the dev infra (`dev-web.welylabs.app`, and `auth.welylabs.app` for the shared Keycloak).
 
 ## On a real iPhone
 
