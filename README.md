@@ -1,9 +1,10 @@
 # wely-ios
 
-> One Keycloak serves every environment, one realm each (`wely-dev`, `wely-prod`,
-> `wely-local`), so the realm and the client id come from the `WELY_KEYCLOAK_REALM` and
-> `WELY_KEYCLOAK_CLIENT_ID` build settings rather than being constants: the simulator talks to
-> the local stack, a device build targets dev.
+> One Keycloak serves every environment, one realm each (`wely-dev` today), so the realm and the
+> client id come from the `WELY_KEYCLOAK_REALM` and `WELY_KEYCLOAK_CLIENT_ID` build settings
+> rather than being constants. Device builds target dev; the simulator points wherever the
+> settings say, since the `local` environment was retired in November 2026 with the datastores
+> that backed it.
 
 Native iOS client for Wely (SwiftUI, iOS 18+). It talks to the same gateway as wely-web and
 signs in through the same Keycloak realm.
@@ -17,7 +18,7 @@ Sign-in happens on the app's own screen: the username and password go to Keycloa
 endpoint (direct access grant, enabled on the public client `wely-web-<env>-client`). Signing up and
 resetting a password still open Keycloak's pages, with the authorization code flow and PKCE;
 Keycloak must list `wely://oauth-callback` among its redirect URIs (done in
-`wely-gitops-infra/overlays/local/keycloak/wely-realm.json`, which describes `wely-local`).
+the `wely-dev` realm; `wely-gitops-infra/platform/realm-exports/wely-dev.json` is its export).
 
 **Demo mode** — enable the `-WelyDemo` argument in *Product › Scheme › Edit Scheme › Run ›
 Arguments* (Debug only): signed in against an in-memory gateway (`DemoTransport`) with sample
