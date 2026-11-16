@@ -136,6 +136,42 @@ struct AuthSessionTests {
         #expect(items["code_challenge"]?.isEmpty == false)
     }
 
+    @Test(arguments: ["google-oauth2", "github"])
+    func socialSignInGoesStraightToTheConnection(connection: String) {
+        let session = AuthSession(config: config, store: InMemoryTokenStore())
+        let url = session.beginSignIn(connection: connection)
+        let items = Dictionary(uniqueKeysWithValues: (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        #expect(url.absoluteString.hasPrefix("https://kc/authorize?"))
+        #expect(items["connection"] == connection)
+        #expect(items["screen_hint"] == nil)
+        #expect(items["audience"] == "wely-api-test")
+        #expect(items["scope"] == "openid profile email offline_access")
+        #expect(items["code_challenge_method"] == "S256")
+        #expect(items["code_challenge"]?.isEmpty == false)
+        #expect(items["state"]?.isEmpty == false)
+    }
+
+    @Test func aPlainSignInNamesNoConnection() {
+        let session = AuthSession(config: config, store: InMemoryTokenStore())
+        let items = URLComponents(url: session.beginSignIn(), resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(!items.contains { $0.name == "connection" })
+    }
+
+    @Test func socialSignInExchangesTheCodeWithTheVerifier() async throws {
+        let http = StubTransport([(200, tokenJSON)])
+        let session = AuthSession(config: config, store: InMemoryTokenStore(), http: http)
+        let items = URLComponents(url: session.beginSignIn(connection: "github"), resolvingAgainstBaseURL: false)!.queryItems!
+        let state = items.first { $0.name == "state" }!.value!
+        let challenge = items.first { $0.name == "code_challenge" }!.value!
+
+        try await session.completeSignIn(callback: URL(string: "wely://oauth-callback?code=C0DE&state=\(state)")!)
+
+        #expect(session.state == .signedIn)
+        let form = http.form(0)
+        #expect(form["grant_type"] == "authorization_code")
+        #expect(PKCE.challenge(for: form["code_verifier"] ?? "") == challenge)
+    }
+
     @Test func aForeignStateIsRefused() async {
         let session = AuthSession(config: config, store: InMemoryTokenStore(), http: StubTransport([]))
         _ = session.beginSignIn()

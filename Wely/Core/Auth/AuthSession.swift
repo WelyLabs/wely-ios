@@ -23,8 +23,8 @@ enum AuthError: LocalizedError, Equatable {
 /// The signed-in state and the tokens behind it.
 ///
 /// Signing in happens on the app's own screen: the username and password go straight to
-/// Auth0's token endpoint (the Native application allows the password grant). Signing up, and a
-/// forgotten password, go through Auth0's Universal Login as the authorization code flow with
+/// Auth0's token endpoint (the Native application allows the password grant). Signing up, a
+/// forgotten password, and Google or GitHub sign-in (which the password grant cannot do) go through Auth0's Universal Login as the authorization code flow with
 /// PKCE: the view opens `beginSignIn` in a web authentication session, then hands the callback
 /// back to `completeSignIn`. Tokens live in the Keychain and are refreshed shortly before they expire.
 @Observable
@@ -82,7 +82,8 @@ final class AuthSession {
 
     /// Starts a sign-in on Auth0's Universal Login: the URL to open, remembered with its PKCE secret.
     /// `signUp` opens the sign-up screen instead of the login one, which offers « forgot password ».
-    func beginSignIn(signUp: Bool = false) -> URL {
+    /// `connection` skips the login page for that identity provider (`google-oauth2`, `github`).
+    func beginSignIn(signUp: Bool = false, connection: String? = nil) -> URL {
         let pkce = PKCE()
         pending = pkce
         lastError = nil
@@ -98,6 +99,7 @@ final class AuthSession {
             URLQueryItem(name: "audience", value: config.audience),
         ]
         if signUp { components.queryItems?.append(URLQueryItem(name: "screen_hint", value: "signup")) }
+        if let connection { components.queryItems?.append(URLQueryItem(name: "connection", value: connection)) }
         return components.url!
     }
 
