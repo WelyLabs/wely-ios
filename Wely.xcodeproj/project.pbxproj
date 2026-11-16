@@ -251,7 +251,7 @@
 				WELY_GATEWAY_URL = "http://localhost:8081";
 				"WELY_GATEWAY_URL[sdk=iphoneos*]" = "https://dev-web.welylabs.app";
 				WELY_AUTH_AUDIENCE = "wely-api-dev";
-				WELY_AUTH_CLIENT_ID = "SET_ME_wely-ios-dev";
+				WELY_AUTH_CLIENT_ID = "B13EYAgwz0taFojKXvElwbGUQfVkiNkS";
 				WELY_AUTH_CONNECTION = "wely-dev-users";
 				WELY_AUTH_DOMAIN = "dev-8k6vch1dvh1qxrdz.eu.auth0.com";
 				WELY_WEB_URL = "http://localhost";
@@ -289,7 +289,7 @@
 				WELY_GATEWAY_URL = "http://localhost:8081";
 				"WELY_GATEWAY_URL[sdk=iphoneos*]" = "https://dev-web.welylabs.app";
 				WELY_AUTH_AUDIENCE = "wely-api-dev";
-				WELY_AUTH_CLIENT_ID = "SET_ME_wely-ios-dev";
+				WELY_AUTH_CLIENT_ID = "B13EYAgwz0taFojKXvElwbGUQfVkiNkS";
 				WELY_AUTH_CONNECTION = "wely-dev-users";
 				WELY_AUTH_DOMAIN = "dev-8k6vch1dvh1qxrdz.eu.auth0.com";
 				WELY_WEB_URL = "http://localhost";
