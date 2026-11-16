@@ -14,6 +14,8 @@ struct AppConfig: Sendable {
     let clientId: String
     /// This environment's API identifier, `wely-api-<env>`: without it Auth0 hands out an opaque token.
     let audience: String
+    /// This environment's database connection, `wely-<env>-users`: the password grant's `realm`.
+    let connection: String
     /// The OAuth redirect; Auth0 must list it among this application's callback URLs.
     let redirectURI = "wely://oauth-callback"
     let callbackScheme = "wely"
@@ -33,12 +35,13 @@ struct AppConfig: Sendable {
     static let current = AppConfig(bundle: .main)
 
     init(gatewayURL: URL, authDomain: String, webURL: URL,
-         clientId: String = "wely-ios-test", audience: String = "wely-api-test") {
+         clientId: String = "wely-ios-test", audience: String = "wely-api-test", connection: String = "wely-test-users") {
         self.gatewayURL = gatewayURL
         self.authDomain = authDomain
         self.webURL = webURL
         self.clientId = clientId
         self.audience = audience
+        self.connection = connection
     }
 
     init(bundle: Bundle) {
@@ -57,7 +60,8 @@ struct AppConfig: Sendable {
             authDomain: text("WelyAuthDomain", fallback: "dev-8k6vch1dvh1qxrdz.eu.auth0.com"),
             webURL: url("WelyWebURL", fallback: "http://localhost"),
             clientId: text("WelyAuthClientId", fallback: "SET_ME_wely-ios-dev"),
-            audience: text("WelyAuthAudience", fallback: "wely-api-dev")
+            audience: text("WelyAuthAudience", fallback: "wely-api-dev"),
+            connection: text("WelyAuthConnection", fallback: "wely-dev-users")
         )
     }
 

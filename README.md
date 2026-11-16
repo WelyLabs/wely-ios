@@ -1,8 +1,8 @@
 # wely-ios
 
 > One Auth0 tenant serves every environment, with an application and an API per environment
-> (`wely-ios-dev`, `wely-api-dev` today), so the domain, client id and audience come from the
-> `WELY_AUTH_DOMAIN`, `WELY_AUTH_CLIENT_ID` and `WELY_AUTH_AUDIENCE` build settings rather than
+> (`wely-ios-dev`, `wely-api-dev`, `wely-dev-users` today), so the domain, client id, audience and connection come from the
+> `WELY_AUTH_DOMAIN`, `WELY_AUTH_CLIENT_ID`, `WELY_AUTH_AUDIENCE` and `WELY_AUTH_CONNECTION` build settings rather than
 > being constants. Device builds target dev; the simulator's gateway points wherever the settings
 > say, since the `local` environment was retired in November 2026 with the datastores that backed it.
 
@@ -15,8 +15,8 @@ signs in through the same Auth0 tenant.
 2. Open `Wely.xcodeproj` in Xcode, pick an iPhone simulator, press ⌘R.
 
 Sign-in happens on the app's own screen: the username and password go to Auth0's `/oauth/token`
-(password grant, enabled on the Native application `wely-ios-<env>`, against the tenant's Default
-Directory). Signing up (`screen_hint=signup`) and a forgotten password open Auth0's Universal Login,
+(password-realm grant, `realm` = the `WELY_AUTH_CONNECTION` database connection, enabled as the
+Password grant on the Native application `wely-ios-<env>`). Signing up (`screen_hint=signup`) and a forgotten password open Auth0's Universal Login,
 with the authorization code flow and PKCE; Auth0 has no reset URL, its login page carries the
 « forgot password » link. Every request sends `audience=wely-api-<env>`, without which Auth0 hands
 out an opaque token. Signing out revokes the refresh token (`/oauth/revoke`).

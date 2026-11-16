@@ -63,7 +63,9 @@ final class AuthSession {
         let tokens: TokenSet
         do {
             tokens = try await requestTokens([
-                "grant_type": "password",
+                // password-realm names the connection, so no tenant-wide Default Directory is needed.
+                "grant_type": "http://auth0.com/oauth/grant-type/password-realm",
+                "realm": config.connection,
                 "client_id": config.clientId,
                 "username": username.trimmingCharacters(in: .whitespacesAndNewlines),
                 "password": password,
@@ -71,8 +73,6 @@ final class AuthSession {
                 "audience": config.audience,
             ])
         } catch let error as OAuthFailure {
-            // shortcut: the plain password grant uses the tenant's Default Directory (wely-dev-users);
-            // a second environment's connection needs the password-realm grant with `realm`.
             if error.code == "invalid_grant" { throw AuthError.invalidCredentials }
             throw AuthError.server(error.message)
         }
