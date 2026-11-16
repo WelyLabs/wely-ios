@@ -57,7 +57,7 @@ struct AppConfig: Sendable {
         }
         self.init(
             gatewayURL: url("WelyGatewayURL", fallback: "http://localhost:8081"),
-            authDomain: text("WelyAuthDomain", fallback: "dev-8k6vch1dvh1qxrdz.eu.auth0.com"),
+            authDomain: text("WelyAuthDomain", fallback: "auth.welylabs.app"),
             webURL: url("WelyWebURL", fallback: "http://localhost"),
             clientId: text("WelyAuthClientId", fallback: "B13EYAgwz0taFojKXvElwbGUQfVkiNkS"),
             audience: text("WelyAuthAudience", fallback: "wely-api-dev"),
