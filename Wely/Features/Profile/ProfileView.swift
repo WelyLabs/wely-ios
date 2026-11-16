@@ -312,7 +312,7 @@ private struct EditProfileView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     AsyncButton("Enregistrer") {
                         var saved = try await app.users.update(update)
-                        if let day = changedBirthDate { saved = try await app.users.completeRegistration(birthDate: day) }
+                        if let day = changedBirthDate { saved = try await app.users.completeRegistration(RegistrationRequest(birthDate: day)) }
                         app.people.setMe(saved)
                         dismiss()
                     }

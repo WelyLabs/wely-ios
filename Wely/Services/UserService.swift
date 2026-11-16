@@ -7,9 +7,9 @@ struct UserService {
 
     func me() async throws -> UserProfile { try await api.get("\(base)/profile") }
     func update(_ update: ProfileUpdate) async throws -> UserProfile { try await api.put("\(base)/profile", body: update) }
-    /// Completes the signup, or changes the birth date later: the updated profile comes back.
-    func completeRegistration(birthDate: String) async throws -> UserProfile {
-        try await api.put("\(base)/profile/registration", body: RegistrationRequest(birthDate: birthDate))
+    /// Fills what the signup misses, or changes the birth date later: the updated profile comes back.
+    func completeRegistration(_ request: RegistrationRequest) async throws -> UserProfile {
+        try await api.put("\(base)/profile/registration", body: request)
     }
     func about() async throws -> ProfileAbout { try await api.get("\(base)/profile/about") }
     func saveAbout(_ about: ProfileAbout) async throws -> ProfileAbout { try await api.put("\(base)/profile/about", body: about) }

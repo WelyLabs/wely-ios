@@ -79,22 +79,59 @@ struct BirthdayModelsTests {
         #expect(AllDay.label(start, start.addingTimeInterval(3 * 86_400)) == "Du 12 mars au 14 mars")
     }
 
-    @Test func signupStepsAreOwedUntilTheBackendSaysDone() {
+    @Test func signupStepsAreThoseWhoseFieldIsMissing() {
         #expect(SignupStep.pending(for: nil).isEmpty)
-        #expect(SignupStep.pending(for: UserProfile(id: "1", userName: "r", registrationCompleted: true)).isEmpty)
-        #expect(SignupStep.pending(for: UserProfile(id: "1", userName: "r", registrationCompleted: false)) == [.birthDate])
+        let full = UserProfile(id: "1", userName: "r", firstName: "Robin", lastName: "Leblanc", birthDate: "1995-03-12")
+        #expect(SignupStep.pending(for: full).isEmpty)
+        // Provisioned by Auth0, which asks no names.
+        #expect(SignupStep.pending(for: UserProfile(id: "1", userName: "r")) == [.names, .birthDate])
+        #expect(SignupStep.pending(for: UserProfile(id: "1", userName: "r", firstName: "Robin", lastName: " ",
+                                                    birthDate: "1995-03-12")) == [.names])
+        #expect(SignupStep.pending(for: UserProfile(id: "1", userName: "r", firstName: "Robin", lastName: "Leblanc")) == [.birthDate])
     }
 
-    @Test func signupAnswersBecomeTheRegistrationRequest() throws {
+    @Test func signupStepsIgnoreTheBackendFlag() {
+        // A step added after the signup is asked of those who never filled it.
+        let flaggedDone = UserProfile(id: "1", userName: "r", firstName: "Robin", lastName: "Leblanc", registrationCompleted: true)
+        #expect(SignupStep.pending(for: flaggedDone) == [.birthDate])
+        let flaggedPending = UserProfile(id: "1", userName: "r", firstName: "Robin", lastName: "Leblanc",
+                                         birthDate: "1995-03-12", registrationCompleted: false)
+        #expect(SignupStep.pending(for: flaggedPending).isEmpty)
+    }
+
+    @Test func signupAnswersSendOnlyThePendingFields() throws {
         let calendar = Calendar.wely
-        let answers = SignupAnswers(birthDate: calendar.date(from: DateComponents(year: 1995, month: 3, day: 12))!)
-        let json = try JSONEncoder.wely.encode(answers.request(calendar: calendar))
-        #expect(String(data: json, encoding: .utf8) == #"{"birthDate":"1995-03-12"}"#)
+        let answers = SignupAnswers(firstName: " Robin ", lastName: "Leblanc\n",
+                                    birthDate: calendar.date(from: DateComponents(year: 1995, month: 3, day: 12))!)
+        let encoder = JSONEncoder.wely
+        encoder.outputFormatting = .sortedKeys
+        let both = try encoder.encode(answers.request(for: [.names, .birthDate], calendar: calendar))
+        #expect(String(data: both, encoding: .utf8) == #"{"birthDate":"1995-03-12","firstName":"Robin","lastName":"Leblanc"}"#)
+        let dateOnly = try encoder.encode(answers.request(for: [.birthDate], calendar: calendar))
+        #expect(String(data: dateOnly, encoding: .utf8) == #"{"birthDate":"1995-03-12"}"#)
+        #expect(answers.request(for: [.names], calendar: calendar) == RegistrationRequest(firstName: "Robin", lastName: "Leblanc"))
 
         let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 18))!
         let range = SignupAnswers.birthDateRange(now: now, calendar: calendar)
         #expect(calendar.component(.year, from: range.lowerBound) == 1906)
         #expect(calendar.component(.year, from: range.upperBound) == 2013)
+    }
+
+    @Test func signupAnswersPrefillTheNamesAndCheckThem() {
+        let answers = SignupAnswers.initial(for: UserProfile(id: "1", userName: "r", firstName: "Robin"))
+        #expect(answers.firstName == "Robin")
+        #expect(answers.lastName == "")
+        #expect(!answers.isValid(.names))
+        #expect(answers.isValid(.birthDate))
+        var named = answers
+        named.lastName = "Leblanc"
+        #expect(named.isValid(.names))
+        named.lastName = "  "
+        #expect(!named.isValid(.names))
+        named.lastName = String(repeating: "a", count: SignupAnswers.nameMax + 1)
+        #expect(!named.isValid(.names))
+        named.lastName = String(repeating: "a", count: SignupAnswers.nameMax)
+        #expect(named.isValid(.names))
     }
 
     @Test func aSurpriseDraftIsPrefilled() {
@@ -123,12 +160,32 @@ struct BirthdayServiceTests {
 
     @Test func completingTheRegistrationPutsTheBirthDate() async throws {
         let (app, http) = signedIn([(200, #"{"id":"u1","userName":"robin","birthDate":"1995-03-12","registrationCompleted":true}"#)])
-        let profile = try await app.users.completeRegistration(birthDate: "1995-03-12")
+        let profile = try await app.users.completeRegistration(RegistrationRequest(birthDate: "1995-03-12"))
         #expect(profile.birthDate == "1995-03-12")
         #expect(profile.registrationCompleted)
         #expect(http.requests[0].httpMethod == "PUT")
         #expect(http.requests[0].url?.path() == "/api/v1/user-service/profile/registration")
         #expect(String(data: http.requests[0].httpBody ?? Data(), encoding: .utf8) == #"{"birthDate":"1995-03-12"}"#)
+    }
+
+    @Test func completingTheRegistrationPutsOnlyTheNames_whenTheBirthDateIsKnown() async throws {
+        let (app, http) = signedIn([(200, #"{"id":"u1","userName":"robin","firstName":"Robin","lastName":"Leblanc","birthDate":"1995-03-12"}"#)])
+        let profile = try await app.users.completeRegistration(RegistrationRequest(firstName: "Robin", lastName: "Leblanc"))
+        #expect(profile.firstName == "Robin")
+        let body = try JSONDecoder().decode([String: String].self, from: http.requests[0].httpBody ?? Data())
+        #expect(body == ["firstName": "Robin", "lastName": "Leblanc"])
+    }
+
+    @Test func theDemoStoresAPartialRegistration_andRefusesAnEmptyOne() async throws {
+        let session = AuthSession(store: InMemoryTokenStore(TokenSet(accessToken: "t", refreshToken: nil, idToken: nil, expiresAt: .distantFuture)))
+        let users = UserService(api: APIClient(session: session, http: DemoTransport()))
+        let before = try await users.me()
+
+        let renamed = try await users.completeRegistration(RegistrationRequest(firstName: "Rob"))
+        #expect(renamed.firstName == "Rob")
+        #expect(renamed.lastName == before.lastName)
+        #expect(renamed.birthDate == before.birthDate)
+        await #expect(throws: (any Error).self) { try await users.completeRegistration(RegistrationRequest()) }
     }
 
     @Test func birthdaysAreAskedForARange() async throws {
