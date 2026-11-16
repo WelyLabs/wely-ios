@@ -68,7 +68,7 @@ struct MainTabView: View {
         // Over the tabs but under the lock: no way around it, and no reading it without Face ID.
         .overlay {
             let steps = SignupStep.pending(for: app.people.me)
-            if !steps.isEmpty { SignupCompletionView(steps: steps) }
+            if !steps.isEmpty { SignupCompletionView(steps: steps, profile: app.people.me) }
         }
         .animation(.default, value: SignupStep.pending(for: app.people.me).isEmpty)
         .task(id: isSettled) {

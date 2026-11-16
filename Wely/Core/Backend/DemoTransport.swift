@@ -161,12 +161,18 @@ struct DemoStore {
             }
             return ok(profile(Self.me))
         case ("PUT", "user-service", ["profile", "registration"]):
-            guard let request = decode(RegistrationRequest.self, body), let day = DayString.date(from: request.birthDate, calendar: calendar) else {
-                return (400, json(["code": "USR-VAL-001"]))
+            guard let request = decode(RegistrationRequest.self, body),
+                  request.birthDate != nil || request.firstName != nil || request.lastName != nil else {
+                return (400, json(["code": "USR-VAL-004"]))
             }
-            let parts = calendar.dateComponents([.year, .month, .day], from: day)
-            myBirthYear = parts.year ?? myBirthYear
-            birthdays[Self.me] = MonthDay(month: parts.month ?? 1, day: parts.day ?? 1)
+            if let sent = request.birthDate {
+                guard let day = DayString.date(from: sent, calendar: calendar) else { return (400, json(["code": "USR-VAL-002"])) }
+                let parts = calendar.dateComponents([.year, .month, .day], from: day)
+                myBirthYear = parts.year ?? myBirthYear
+                birthdays[Self.me] = MonthDay(month: parts.month ?? 1, day: parts.day ?? 1)
+            }
+            let current = people[Self.me]!
+            people[Self.me] = (current.name, request.firstName ?? current.first, request.lastName ?? current.last, current.tag)
             return ok(profile(Self.me))
         case ("GET", "user-service", ["profile", "preferences"]): return ok(preferences)
         case ("PUT", "user-service", ["profile", "preferences"]):

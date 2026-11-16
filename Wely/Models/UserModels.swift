@@ -55,9 +55,12 @@ struct ProfileUpdate: Codable, Sendable {
     var lastName: String
 }
 
-/// `PUT user-service/profile/registration`: what the signup completion asks; later steps add fields here.
-struct RegistrationRequest: Codable, Sendable {
-    var birthDate: String
+/// `PUT user-service/profile/registration`: the fields the profile misses, at least one; a nil one
+/// is left out of the JSON and stays as stored.
+struct RegistrationRequest: Codable, Equatable, Sendable {
+    var birthDate: String?
+    var firstName: String?
+    var lastName: String?
 }
 
 /// The member's short bio and interests, `user-service/profile/about`.
