@@ -11,7 +11,10 @@ private final class FailingTransport: HTTPTransport, @unchecked Sendable {
 
 struct CalendarModelTests {
     private let calendar = Calendar.wely
-    private var today: Date { calendar.date(from: DateComponents(year: 2026, month: 10, day: 15, hour: 12))! }
+    /// The real day, because the demo fixture these tests read is built on the wall clock too, and
+    /// CalendarModel's own `goToToday()` reads it. Pinned to a date it drifted away from, this was a
+    /// fuse: 2026-10-15 agreed with reality until 1 November 2026, then three expectations went red.
+    private var today: Date { calendar.startOfDay(for: .now) }
 
     private func model(_ http: HTTPTransport = DemoTransport()) -> CalendarModel {
         let session = AuthSession(store: InMemoryTokenStore(TokenSet(accessToken: "t", refreshToken: nil, idToken: nil, expiresAt: .distantFuture)))
@@ -79,13 +82,16 @@ struct CalendarModelTests {
 
     @Test func navigatesBetweenMonths() {
         let model = model()
+        let nextMonth = calendar.date(byAdding: .month, value: 1, to: today)!
+
         model.showMonth(offset: 1)
-        #expect(calendar.component(.month, from: model.displayedMonth) == 11)
+        #expect(calendar.isDate(model.displayedMonth, equalTo: nextMonth, toGranularity: .month))
+        // Next month never holds today, so the selection falls on its first day.
         #expect(calendar.component(.day, from: model.selectedDay) == 1)
 
         model.goToToday()
-        #expect(calendar.isDate(model.displayedMonth, equalTo: .now, toGranularity: .month))
-        #expect(calendar.isDateInToday(model.selectedDay))
+        #expect(calendar.isDate(model.displayedMonth, equalTo: today, toGranularity: .month))
+        #expect(calendar.isDate(model.selectedDay, inSameDayAs: today))
     }
 
     @Test func selectingADayOfAnotherMonthShowsThatMonth() {
