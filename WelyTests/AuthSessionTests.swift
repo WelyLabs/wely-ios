@@ -151,6 +151,33 @@ struct AuthSessionTests {
         #expect(items["state"]?.isEmpty == false)
     }
 
+    @Test func aReauthenticationForcesTheLoginPage() {
+        let session = AuthSession(config: config, store: InMemoryTokenStore())
+        let items = URLComponents(url: session.beginSignIn(connection: "google-oauth2", forceLogin: true), resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(items.first { $0.name == "prompt" }?.value == "login")
+        #expect(items.first { $0.name == "connection" }?.value == "google-oauth2")
+        #expect(!(URLComponents(url: session.beginSignIn(), resolvingAgainstBaseURL: false)?.queryItems ?? []).contains { $0.name == "prompt" })
+    }
+
+    private static func jwt(sub: String) -> String {
+        let payload = Data(#"{"sub":"\#(sub)","aud":"wely-api-test"}"#.utf8).base64URLEncoded()
+        return "eyJhbGciOiJSUzI1NiJ9.\(payload).c2ln"
+    }
+
+    @Test(arguments: [("google-oauth2|1077", "google-oauth2"), ("github|42", "github")])
+    func aSocialSubjectNamesItsConnection(sub: String, connection: String) {
+        #expect(AuthSession.socialConnection(ofAccessToken: Self.jwt(sub: sub)) == connection)
+        let tokens = TokenSet(accessToken: Self.jwt(sub: sub), refreshToken: nil, idToken: nil, expiresAt: .distantFuture)
+        #expect(AuthSession(config: config, store: InMemoryTokenStore(tokens)).socialConnection == connection)
+    }
+
+    @Test func aPasswordAccountOrAnOpaqueTokenHasNoSocialConnection() {
+        #expect(AuthSession.socialConnection(ofAccessToken: Self.jwt(sub: "auth0|abc")) == nil)
+        // The demo session's token is not a JWT: deletion keeps the password path.
+        #expect(AuthSession.socialConnection(ofAccessToken: "demo") == nil)
+        #expect(AuthSession(config: config, store: InMemoryTokenStore()).socialConnection == nil)
+    }
+
     @Test func aPlainSignInNamesNoConnection() {
         let session = AuthSession(config: config, store: InMemoryTokenStore())
         let items = URLComponents(url: session.beginSignIn(), resolvingAgainstBaseURL: false)?.queryItems ?? []

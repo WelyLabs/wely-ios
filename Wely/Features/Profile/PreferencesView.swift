@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 /// The account's preferences, as wely-web's page: the theme, the notifications, and deleting
@@ -313,10 +314,12 @@ private struct ErrorLine: View {
 // MARK: Deletion
 
 /// The last step before deleting the account: what it does, the handle typed to confirm, and
-/// the password — the sign-in it gives is what wely-users wants under five minutes old.
+/// the password — the sign-in it gives is what wely-users wants under five minutes old. A Google
+/// or GitHub user has no password: they sign in again with their provider instead.
 private struct DeleteAccountSheet: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @State private var typedHandle = ""
     @State private var password = ""
     @State private var running = false
@@ -324,7 +327,11 @@ private struct DeleteAccountSheet: View {
 
     private var me: UserProfile? { app.people.me }
     private var handle: String { me.map { "\($0.userName)#\($0.hashtag)" } ?? "" }
-    private var canDelete: Bool { !handle.isEmpty && typedHandle.trimmingCharacters(in: .whitespaces) == handle && !password.isEmpty && !running }
+    /// `google-oauth2` or `github` for a social account, nil for a password one.
+    private var connection: String? { app.session.socialConnection }
+    private var canDelete: Bool {
+        !handle.isEmpty && typedHandle.trimmingCharacters(in: .whitespaces) == handle && (connection != nil || !password.isEmpty) && !running
+    }
 
     var body: some View {
         WelyNavigationStack {
@@ -352,9 +359,13 @@ private struct DeleteAccountSheet: View {
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                         }
-                        Text("Puis votre mot de passe").font(.wely.subheadline).padding(.top, 6)
-                        WelyField(systemImage: "lock") {
-                            SecureField("Mot de passe", text: $password).textContentType(.password)
+                        if let connection {
+                            Text("Puis reconnectez-vous avec \(Self.providerName(connection))").font(.wely.subheadline).padding(.top, 6)
+                        } else {
+                            Text("Puis votre mot de passe").font(.wely.subheadline).padding(.top, 6)
+                            WelyField(systemImage: "lock") {
+                                SecureField("Mot de passe", text: $password).textContentType(.password)
+                            }
                         }
                     }
 
@@ -389,7 +400,13 @@ private struct DeleteAccountSheet: View {
             defer { running = false }
             do {
                 // Signing in again gives a fresh `auth_time`, which wely-users checks.
-                try await app.session.signIn(username: me.email ?? me.userName, password: password)
+                if let connection {
+                    try await reauthenticate(through: connection)
+                } else {
+                    try await app.session.signIn(username: me.email ?? me.userName, password: password)
+                }
+            } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+                return
             } catch {
                 self.error = (error as? AuthError) == .invalidCredentials ? "Mot de passe incorrect." : error.localizedDescription
                 password = ""
@@ -407,7 +424,9 @@ private struct DeleteAccountSheet: View {
                 dismiss()
                 await app.session.signOut()
             case .reauthenticationRequired:
-                error = "Votre confirmation a expiré : retapez votre mot de passe."
+                error = connection == nil
+                    ? "Votre confirmation a expiré : retapez votre mot de passe."
+                    : "Votre confirmation a expiré : reconnectez-vous."
                 password = ""
             case .protected:
                 error = "Le compte de démonstration ne peut pas être supprimé."
@@ -416,6 +435,26 @@ private struct DeleteAccountSheet: View {
             case .failed(let message):
                 error = message
             }
+        }
+    }
+
+    /// The provider's sign-in page, credentials asked again (`prompt=login`), back signed in afresh.
+    private func reauthenticate(through connection: String) async throws {
+        let url = app.session.beginSignIn(connection: connection, forceLogin: true)
+        let callback = try await webAuthenticationSession.authenticate(
+            using: url,
+            callback: .customScheme(app.session.config.callbackScheme),
+            preferredBrowserSession: .ephemeral,
+            additionalHeaderFields: [:]
+        )
+        try await app.session.completeSignIn(callback: callback)
+    }
+
+    static func providerName(_ connection: String) -> String {
+        switch connection {
+        case "google-oauth2": "Google"
+        case "github": "GitHub"
+        default: connection
         }
     }
 }

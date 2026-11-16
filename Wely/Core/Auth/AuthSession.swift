@@ -82,8 +82,9 @@ final class AuthSession {
 
     /// Starts a sign-in on Auth0's Universal Login: the URL to open, remembered with its PKCE secret.
     /// `signUp` opens the sign-up screen instead of the login one, which offers « forgot password ».
-    /// `connection` skips the login page for that identity provider (`google-oauth2`, `github`).
-    func beginSignIn(signUp: Bool = false, connection: String? = nil) -> URL {
+    /// `connection` skips the login page for that identity provider (`google-oauth2`, `github`);
+    /// `forceLogin` asks for the credentials again even with a live session (`prompt=login`).
+    func beginSignIn(signUp: Bool = false, connection: String? = nil, forceLogin: Bool = false) -> URL {
         let pkce = PKCE()
         pending = pkce
         lastError = nil
@@ -100,6 +101,7 @@ final class AuthSession {
         ]
         if signUp { components.queryItems?.append(URLQueryItem(name: "screen_hint", value: "signup")) }
         if let connection { components.queryItems?.append(URLQueryItem(name: "connection", value: connection)) }
+        if forceLogin { components.queryItems?.append(URLQueryItem(name: "prompt", value: "login")) }
         return components.url!
     }
 
@@ -125,6 +127,25 @@ final class AuthSession {
         ])
         store(tokens)
         state = .signedIn
+    }
+
+    /// The Auth0 connection of a user signed in through Google or GitHub, read from the access
+    /// token's `sub` (`google-oauth2|…`); nil for a password account (`auth0|…`) or no session.
+    var socialConnection: String? {
+        tokens.flatMap { Self.socialConnection(ofAccessToken: $0.accessToken) }
+    }
+
+    static func socialConnection(ofAccessToken token: String) -> String? {
+        let parts = token.split(separator: ".")
+        guard parts.count == 3 else { return nil }
+        var payload = parts[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
+        guard let data = Data(base64Encoded: payload),
+              let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let subject = claims["sub"] as? String,
+              !subject.hasPrefix("auth0|"),
+              let separator = subject.firstIndex(of: "|") else { return nil }
+        return String(subject[..<separator])
     }
 
     func fail(_ error: AuthError) {
