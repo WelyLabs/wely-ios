@@ -5,16 +5,18 @@
 	<!-- Where the app talks to; set per configuration in the WELY_* build settings. -->
 	<key>WelyGatewayURL</key>
 	<string>$(WELY_GATEWAY_URL)</string>
-	<key>WelyKeycloakURL</key>
-	<string>$(WELY_KEYCLOAK_URL)</string>
 	<key>WelyWebURL</key>
 	<string>$(WELY_WEB_URL)</string>
-	<!-- One Keycloak serves every environment, one realm each, with a client named after its
-	     service and environment: neither can be a constant in the binary. -->
-	<key>WelyKeycloakRealm</key>
-	<string>$(WELY_KEYCLOAK_REALM)</string>
-	<key>WelyKeycloakClientId</key>
-	<string>$(WELY_KEYCLOAK_CLIENT_ID)</string>
+	<!-- One Auth0 tenant serves every environment, with an application and an API named after
+	     their environment: none of them can be a constant in the binary. -->
+	<key>WelyAuthDomain</key>
+	<string>$(WELY_AUTH_DOMAIN)</string>
+	<key>WelyAuthClientId</key>
+	<string>$(WELY_AUTH_CLIENT_ID)</string>
+	<key>WelyAuthAudience</key>
+	<string>$(WELY_AUTH_AUDIENCE)</string>
+	<key>WelyAuthConnection</key>
+	<string>$(WELY_AUTH_CONNECTION)</string>
 	<!-- The local stack is plain HTTP on localhost / the LAN. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/// The tokens Keycloak hands out, with the access token's expiry made absolute.
+/// The tokens Auth0 hands out, with the access token's expiry made absolute.
 struct TokenSet: Codable, Equatable, Sendable {
     let accessToken: String
     let refreshToken: String?
@@ -14,7 +14,7 @@ struct TokenSet: Codable, Equatable, Sendable {
     }
 }
 
-/// Keycloak's token endpoint answer.
+/// Auth0's token endpoint answer.
 struct TokenResponse: Decodable, Sendable {
     let accessToken: String
     let refreshToken: String?
