@@ -4,7 +4,7 @@ import SwiftUI
 /// The welcome screen: Wely's logo and the sign-in form, on the app's own screen — the same
 /// composition as the Keycloak theme (brand, pitch, a narrow card on the warm canvas).
 ///
-/// Signing up and resetting a password open Auth0's Universal Login: Auth0 has no reset URL of
+/// Signing up, resetting a password, and Google or GitHub sign-in open Auth0's Universal Login: Auth0 has no reset URL of
 /// its own, its login page carries the « forgot password » link.
 struct LoginView: View {
     @Environment(AuthSession.self) private var session
@@ -133,10 +133,30 @@ struct LoginView: View {
             .controlSize(.large)
             .disabled(!canSubmit)
             .padding(.top, 2)
+
+            HStack(spacing: 10) {
+                Rectangle().fill(Theme.border).frame(height: 1)
+                Text("ou").font(.wely.footnote).foregroundStyle(Theme.ink3)
+                Rectangle().fill(Theme.border).frame(height: 1)
+            }
+            .accessibilityHidden(true)
+
+            socialButton("Continuer avec Google", connection: "google-oauth2")
+            socialButton("Continuer avec GitHub", connection: "github")
         }
         .padding(22)
         .welyCard(radius: 24)
         .animation(.snappy, value: session.lastError)
+    }
+
+    /// Google and GitHub accounts stay separate from a Wely account with the same e-mail.
+    private func socialButton(_ title: String, connection: String) -> some View {
+        Button { openUniversalLogin(connection: connection) } label: {
+            Text(title).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.welySecondary)
+        .controlSize(.large)
+        .disabled(isSigningIn)
     }
 
     private var signUp: some View {
@@ -169,8 +189,8 @@ struct LoginView: View {
 
     /// Auth0's sign-up or login page, in a web authentication session that ends signed in when
     /// the page redirects back to the app.
-    private func openUniversalLogin(signUp: Bool = false) {
-        let url = session.beginSignIn(signUp: signUp)
+    private func openUniversalLogin(signUp: Bool = false, connection: String? = nil) {
+        let url = session.beginSignIn(signUp: signUp, connection: connection)
         Task {
             do {
                 // Ephemeral: no shared Safari cookies, so no « Wely wants to sign in » prompt.
