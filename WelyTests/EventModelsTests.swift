@@ -102,12 +102,12 @@ struct EventModelsTests {
     }
 
     @Test func coverURLs() {
-        let config = AppConfig(gatewayURL: URL(string: "http://gw")!, keycloakURL: URL(string: "http://kc")!, webURL: URL(string: "http://web")!)
+        let config = AppConfig(gatewayURL: URL(string: "http://gw")!, authDomain: "kc", webURL: URL(string: "http://web")!)
         #expect(config.imageURL("/demo/a.jpg")?.absoluteString == "http://web/demo/a.jpg")
         #expect(config.imageURL("https://s3/x.jpg?sig=1")?.absoluteString == "https://s3/x.jpg?sig=1")
         #expect(config.imageURL("") == nil)
         #expect(config.imageURL(nil) == nil)
-        #expect(config.tokenEndpoint.absoluteString == "http://kc/realms/wely-realm/protocol/openid-connect/token")
+        #expect(config.tokenEndpoint.absoluteString == "https://kc/oauth/token")
         #expect(config.apiURL.absoluteString == "http://gw/api/v1")
     }
 

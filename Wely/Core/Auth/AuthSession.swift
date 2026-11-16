@@ -8,7 +8,6 @@ enum AuthError: LocalizedError, Equatable {
     case server(String)
     case sessionExpired
     case invalidCredentials
-    case accountNotReady
 
     var errorDescription: String? {
         switch self {
@@ -17,7 +16,6 @@ enum AuthError: LocalizedError, Equatable {
         case .server(let message): "Connexion impossible : \(message)"
         case .sessionExpired: "Votre session a expiré, reconnectez-vous."
         case .invalidCredentials: "Identifiant ou mot de passe incorrect."
-        case .accountNotReady: "Votre compte doit être finalisé (e-mail à vérifier ou mot de passe à changer) : terminez sur la page web de Wely."
         }
     }
 }
@@ -25,11 +23,10 @@ enum AuthError: LocalizedError, Equatable {
 /// The signed-in state and the tokens behind it.
 ///
 /// Signing in happens on the app's own screen: the username and password go straight to
-/// Keycloak's token endpoint (`wely-client` allows direct access grants). Signing up still goes
-/// through Keycloak's registration page — its form is what creates the user in wely-users — as
-/// the authorization code flow with PKCE: the view opens `registrationURL` in a web
-/// authentication session, then hands the callback back to `completeSignIn`. Tokens live in the
-/// Keychain and are refreshed shortly before they expire.
+/// Auth0's token endpoint (the Native application allows the password grant). Signing up, and a
+/// forgotten password, go through Auth0's Universal Login as the authorization code flow with
+/// PKCE: the view opens `beginSignIn` in a web authentication session, then hands the callback
+/// back to `completeSignIn`. Tokens live in the Keychain and are refreshed shortly before they expire.
 @Observable
 final class AuthSession {
     enum State: Equatable {
@@ -57,8 +54,7 @@ final class AuthSession {
 
     // MARK: Sign in
 
-    /// offline_access: a refresh token that outlives Keycloak's browser session (30 minutes idle),
-    /// valid 30 days without use and renewed by each, so closing the app does not sign out.
+    /// offline_access: a refresh token, so closing the app does not sign out.
     static let scope = "openid profile email offline_access"
 
     /// Signs in with what the user typed on the login screen.
@@ -72,29 +68,25 @@ final class AuthSession {
                 "username": username.trimmingCharacters(in: .whitespacesAndNewlines),
                 "password": password,
                 "scope": Self.scope,
+                "audience": config.audience,
             ])
         } catch let error as OAuthFailure {
-            // Keycloak answers invalid_grant for both a wrong password and an account that still
-            // owes a required action (verify the e-mail, change the password): only the
-            // description tells them apart.
-            if error.code == "invalid_grant" {
-                throw error.description?.localizedCaseInsensitiveContains("not fully set up") == true
-                    ? AuthError.accountNotReady : AuthError.invalidCredentials
-            }
+            // shortcut: the plain password grant uses the tenant's Default Directory (wely-dev-users);
+            // a second environment's connection needs the password-realm grant with `realm`.
+            if error.code == "invalid_grant" { throw AuthError.invalidCredentials }
             throw AuthError.server(error.message)
         }
         store(tokens)
         state = .signedIn
     }
 
-    /// Starts a sign-in on a Keycloak page: the URL to open, remembered with its PKCE secret.
-    /// `registration` opens the sign-up form instead of the login one.
-    func beginSignIn(registration: Bool = false) -> URL {
+    /// Starts a sign-in on Auth0's Universal Login: the URL to open, remembered with its PKCE secret.
+    /// `signUp` opens the sign-up screen instead of the login one, which offers « forgot password ».
+    func beginSignIn(signUp: Bool = false) -> URL {
         let pkce = PKCE()
         pending = pkce
         lastError = nil
-        let endpoint = registration ? config.registrationEndpoint : config.authorizationEndpoint
-        var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: config.authorizationEndpoint, resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "client_id", value: config.clientId),
             URLQueryItem(name: "redirect_uri", value: config.redirectURI),
@@ -103,11 +95,13 @@ final class AuthSession {
             URLQueryItem(name: "state", value: pkce.state),
             URLQueryItem(name: "code_challenge", value: pkce.challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
+            URLQueryItem(name: "audience", value: config.audience),
         ]
+        if signUp { components.queryItems?.append(URLQueryItem(name: "screen_hint", value: "signup")) }
         return components.url!
     }
 
-    /// Ends a sign-in with Keycloak's redirect: checks the state, trades the code for tokens.
+    /// Ends a sign-in with Auth0's redirect: checks the state, trades the code for tokens.
     func completeSignIn(callback: URL) async throws {
         guard let pkce = pending else { throw AuthError.stateMismatch }
         pending = nil
@@ -164,15 +158,19 @@ final class AuthSession {
         defer { refreshTask = nil }
         // A network error (no signal yet when the app comes back) passes through: the session stays.
         do {
-            let fresh = try await task.value
+            var fresh = try await task.value
+            // Without rotation Auth0 does not resend the refresh token: keep the one we have.
+            if fresh.refreshToken == nil {
+                fresh = TokenSet(accessToken: fresh.accessToken, refreshToken: refreshToken, idToken: fresh.idToken, expiresAt: fresh.expiresAt)
+            }
             store(fresh)
             return fresh
-        } catch let error as OAuthFailure where error.status == 400 || error.status == 401 {
-            // Keycloak refused the refresh token: revoked, or unused for 30 days.
+        } catch let error as OAuthFailure where error.status == 400 || error.status == 401 || error.code == "invalid_grant" {
+            // Auth0 refused the refresh token (403 invalid_grant): revoked, reused, or expired.
             expire()
             throw AuthError.sessionExpired
         } catch let error as OAuthFailure {
-            // Keycloak restarting, a 502 from the tunnel: the session is still good.
+            // Auth0 unreachable, a 5xx: the session is still good.
             throw AuthError.server(error.message)
         }
     }
@@ -188,15 +186,16 @@ final class AuthSession {
 
     // MARK: Sign out
 
-    /// Forgets the session here and, best effort, ends it in Keycloak.
+    /// Forgets the session here and, best effort, revokes the refresh token at Auth0. Not
+    /// `/oidc/logout`: the web sessions are ephemeral, so no Auth0 cookie survives to end.
     func signOut() async {
         let refreshToken = tokens?.refreshToken
         clearSession()
         guard let refreshToken else { return }
-        var request = URLRequest(url: config.logoutEndpoint)
+        var request = URLRequest(url: config.revocationEndpoint)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Self.formBody(["client_id": config.clientId, "refresh_token": refreshToken])
+        request.httpBody = Self.formBody(["client_id": config.clientId, "token": refreshToken])
         _ = try? await http.data(for: request)
     }
 
@@ -252,7 +251,7 @@ final class AuthSession {
     }
 }
 
-/// Keycloak's refusal of a token request, before it becomes an `AuthError`.
+/// Auth0's refusal of a token request, before it becomes an `AuthError`.
 private struct OAuthFailure: Error {
     let code: String?
     let description: String?

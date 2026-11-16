@@ -1,19 +1,20 @@
 import Foundation
 
-/// Where the app talks to: the gateway, Keycloak and the web front (for `/demo/...` covers).
+/// Where the app talks to: the gateway, Auth0 and the web front (for `/demo/...` covers).
 ///
 /// The URLs come from the `WELY_*` build settings, through `Config/Wely-Info.plist`, so the
 /// same code points at the local stack in the simulator and at another environment elsewhere.
 struct AppConfig: Sendable {
     let gatewayURL: URL
-    let keycloakURL: URL
+    /// The Auth0 tenant's domain, without scheme.
+    let authDomain: String
     let webURL: URL
 
-    /// This environment's realm, `wely-<env>`: one Keycloak serves them all.
-    let realm: String
-    /// This environment's client, `wely-<service>-<env>-client`.
+    /// This environment's Auth0 Native application, `wely-ios-<env>`.
     let clientId: String
-    /// The OAuth redirect; Keycloak must list it among this client's redirect URIs.
+    /// This environment's API identifier, `wely-api-<env>`: without it Auth0 hands out an opaque token.
+    let audience: String
+    /// The OAuth redirect; Auth0 must list it among this application's callback URLs.
     let redirectURI = "wely://oauth-callback"
     let callbackScheme = "wely"
 
@@ -24,27 +25,20 @@ struct AppConfig: Sendable {
         components.scheme = gatewayURL.scheme == "https" ? "wss" : "ws"
         return components.url!
     }
-    var realmURL: URL { keycloakURL.appending(path: "realms/\(realm)") }
-    var authorizationEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/auth") }
-    var registrationEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/registrations") }
-    /// Keycloak's « forgotten password » form, which sends the reset link by e-mail.
-    var resetPasswordURL: URL {
-        var components = URLComponents(url: realmURL.appending(path: "login-actions/reset-credentials"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "client_id", value: clientId)]
-        return components.url!
-    }
-    var tokenEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/token") }
-    var logoutEndpoint: URL { realmURL.appending(path: "protocol/openid-connect/logout") }
+    var authURL: URL { URL(string: "https://\(authDomain)")! }
+    var authorizationEndpoint: URL { authURL.appending(path: "authorize") }
+    var tokenEndpoint: URL { authURL.appending(path: "oauth/token") }
+    var revocationEndpoint: URL { authURL.appending(path: "oauth/revoke") }
 
     static let current = AppConfig(bundle: .main)
 
-    init(gatewayURL: URL, keycloakURL: URL, webURL: URL,
-         realm: String = "wely-local", clientId: String = "wely-web-local-client") {
+    init(gatewayURL: URL, authDomain: String, webURL: URL,
+         clientId: String = "wely-ios-test", audience: String = "wely-api-test") {
         self.gatewayURL = gatewayURL
-        self.keycloakURL = keycloakURL
+        self.authDomain = authDomain
         self.webURL = webURL
-        self.realm = realm
         self.clientId = clientId
+        self.audience = audience
     }
 
     init(bundle: Bundle) {
@@ -60,10 +54,10 @@ struct AppConfig: Sendable {
         }
         self.init(
             gatewayURL: url("WelyGatewayURL", fallback: "http://localhost:8081"),
-            keycloakURL: url("WelyKeycloakURL", fallback: "http://localhost:8080"),
+            authDomain: text("WelyAuthDomain", fallback: "dev-8k6vch1dvh1qxrdz.eu.auth0.com"),
             webURL: url("WelyWebURL", fallback: "http://localhost"),
-            realm: text("WelyKeycloakRealm", fallback: "wely-local"),
-            clientId: text("WelyKeycloakClientId", fallback: "wely-web-local-client")
+            clientId: text("WelyAuthClientId", fallback: "SET_ME_wely-ios-dev"),
+            audience: text("WelyAuthAudience", fallback: "wely-api-dev")
         )
     }
 

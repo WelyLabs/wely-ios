@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Wely
 
-private let config = AppConfig(gatewayURL: URL(string: "http://gw")!, keycloakURL: URL(string: "http://kc")!, webURL: URL(string: "http://web")!)
+private let config = AppConfig(gatewayURL: URL(string: "http://gw")!, authDomain: "kc", webURL: URL(string: "http://web")!)
 
 struct PreferencesModelsTests {
     @Test func themesReadAndWriteAsWelyUsersSpellsThem() throws {

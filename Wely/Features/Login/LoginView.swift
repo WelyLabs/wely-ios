@@ -4,8 +4,8 @@ import SwiftUI
 /// The welcome screen: Wely's logo and the sign-in form, on the app's own screen — the same
 /// composition as the Keycloak theme (brand, pitch, a narrow card on the warm canvas).
 ///
-/// Signing up and resetting a password still open Keycloak's pages: its registration form is
-/// what creates the user in wely-users, and a reset goes through an e-mail anyway.
+/// Signing up and resetting a password open Auth0's Universal Login: Auth0 has no reset URL of
+/// its own, its login page carries the « forgot password » link.
 struct LoginView: View {
     @Environment(AuthSession.self) private var session
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
@@ -105,7 +105,7 @@ struct LoginView: View {
 
             HStack {
                 Spacer()
-                Button("Mot de passe oublié ?") { openKeycloak(config: session.config.resetPasswordURL) }
+                Button("Mot de passe oublié ?") { openUniversalLogin() }
                     .font(.wely.footnote.weight(.medium))
             }
 
@@ -143,7 +143,7 @@ struct LoginView: View {
         HStack(spacing: 4) {
             Text("Pas encore de compte ?")
                 .foregroundStyle(Theme.ink2)
-            Button("Créer un compte") { openKeycloak(config: nil) }
+            Button("Créer un compte") { openUniversalLogin(signUp: true) }
                 .fontWeight(.semibold)
         }
         .font(.wely.subheadline)
@@ -167,10 +167,10 @@ struct LoginView: View {
         }
     }
 
-    /// Keycloak's sign-up form (`nil`) or another of its pages, in a web authentication session
-    /// that ends signed in when the page redirects back to the app.
-    private func openKeycloak(config page: URL?) {
-        let url = page ?? session.beginSignIn(registration: true)
+    /// Auth0's sign-up or login page, in a web authentication session that ends signed in when
+    /// the page redirects back to the app.
+    private func openUniversalLogin(signUp: Bool = false) {
+        let url = session.beginSignIn(signUp: signUp)
         Task {
             do {
                 // Ephemeral: no shared Safari cookies, so no « Wely wants to sign in » prompt.

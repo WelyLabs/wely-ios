@@ -1,24 +1,35 @@
 # wely-ios
 
-> One Keycloak serves every environment, one realm each (`wely-dev` today), so the realm and the
-> client id come from the `WELY_KEYCLOAK_REALM` and `WELY_KEYCLOAK_CLIENT_ID` build settings
-> rather than being constants. Device builds target dev; the simulator points wherever the
-> settings say, since the `local` environment was retired in November 2026 with the datastores
-> that backed it.
+> One Auth0 tenant serves every environment, with an application and an API per environment
+> (`wely-ios-dev`, `wely-api-dev` today), so the domain, client id and audience come from the
+> `WELY_AUTH_DOMAIN`, `WELY_AUTH_CLIENT_ID` and `WELY_AUTH_AUDIENCE` build settings rather than
+> being constants. Device builds target dev; the simulator's gateway points wherever the settings
+> say, since the `local` environment was retired in November 2026 with the datastores that backed it.
 
 Native iOS client for Wely (SwiftUI, iOS 18+). It talks to the same gateway as wely-web and
-signs in through the same Keycloak realm.
+signs in through the same Auth0 tenant.
 
 ## Run
 
-1. Start the local stack: `~/Documents/wely-app/wely up` (gateway :8081, Keycloak :8080).
+1. Start the local stack: `~/Documents/wely-app/wely up` (gateway :8081).
 2. Open `Wely.xcodeproj` in Xcode, pick an iPhone simulator, press ⌘R.
 
-Sign-in happens on the app's own screen: the username and password go to Keycloak's token
-endpoint (direct access grant, enabled on the public client `wely-web-<env>-client`). Signing up and
-resetting a password still open Keycloak's pages, with the authorization code flow and PKCE;
-Keycloak must list `wely://oauth-callback` among its redirect URIs (done in
-the `wely-dev` realm; `wely-gitops-infra/platform/realm-exports/wely-dev.json` is its export).
+Sign-in happens on the app's own screen: the username and password go to Auth0's `/oauth/token`
+(password grant, enabled on the Native application `wely-ios-<env>`, against the tenant's Default
+Directory). Signing up (`screen_hint=signup`) and a forgotten password open Auth0's Universal Login,
+with the authorization code flow and PKCE; Auth0 has no reset URL, its login page carries the
+« forgot password » link. Every request sends `audience=wely-api-<env>`, without which Auth0 hands
+out an opaque token. Signing out revokes the refresh token (`/oauth/revoke`).
+
+The Native application needs:
+
+| Setting | Value |
+| --- | --- |
+| Allowed Callback URLs | `wely://oauth-callback` |
+| Allowed Logout URLs | `wely://oauth-callback` (unused today: the web sessions are ephemeral) |
+| Grant types | Authorization Code, Refresh Token, Password |
+| Refresh token rotation | on (the app shares one refresh request between callers) |
+| Token endpoint authentication | None (public client) |
 
 **Demo mode** — enable the `-WelyDemo` argument in *Product › Scheme › Edit Scheme › Run ›
 Arguments* (Debug only): signed in against an in-memory gateway (`DemoTransport`) with sample
@@ -33,10 +44,11 @@ xcodebuild test -project Wely.xcodeproj -scheme Wely -destination 'platform=iOS 
 
 ## Environments
 
-URLs are build settings of the `Wely` target (`WELY_GATEWAY_URL`, `WELY_KEYCLOAK_URL`,
-`WELY_WEB_URL`), read at runtime from `Config/Wely-Info.plist`. In the simulator they point
-at `localhost`, which it shares with the Mac; on a real iPhone (`sdk=iphoneos*`), which cannot
-reach the Mac's `localhost`, at the dev infra (`dev-web.welylabs.app`, and `auth.welylabs.app` for the shared Keycloak).
+URLs are build settings of the `Wely` target (`WELY_GATEWAY_URL`, `WELY_WEB_URL`, and
+`WELY_AUTH_*` for Auth0), read at runtime from `Config/Wely-Info.plist`. In the simulator the
+gateway and web point at `localhost`, which it shares with the Mac; on a real iPhone
+(`sdk=iphoneos*`), which cannot reach the Mac's `localhost`, at the dev infra (`dev-web.welylabs.app`).
+Auth0 has no local counterpart: both sign in against the dev tenant.
 
 ## On a real iPhone
 
@@ -57,7 +69,7 @@ the profile in Settings → General → VPN & Device Management. The app expires
 | Folder | What |
 | --- | --- |
 | `Wely/App` | entry point, `AppModel` (services, people, notifications, chat socket), tabs, routes |
-| `Wely/Core/Auth` | Keycloak sign-in (password grant; PKCE for sign-up), tokens in the Keychain, refresh |
+| `Wely/Core/Auth` | Auth0 sign-in (password grant; PKCE for sign-up), tokens in the Keychain, refresh |
 | `Wely/DesignSystem` | wely-web's look: colours, Outfit, buttons, cards, the tab bar's pieces |
 | `Wely/Core/API` | gateway client (JSON, multipart, business error codes), lenient decoding |
 | `Wely/Core/Realtime` | RSocket over WebSocket (chat, call events), server-sent events (notifications, polls) |

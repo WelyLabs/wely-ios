@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 struct EventInvitationTests {
-    private let config = AppConfig(gatewayURL: URL(string: "https://gw")!, keycloakURL: URL(string: "https://kc")!,
+    private let config = AppConfig(gatewayURL: URL(string: "https://gw")!, authDomain: "kc",
                                    webURL: URL(string: "https://web.wely")!)
     private let paris = TimeZone(identifier: "Europe/Paris")!
 

@@ -27,7 +27,7 @@ final class StubTransport: HTTPTransport, @unchecked Sendable {
 }
 
 private let tokenJSON = #"{"access_token":"AT","refresh_token":"RT","id_token":"IT","expires_in":300}"#
-private let config = AppConfig(gatewayURL: URL(string: "http://gw")!, keycloakURL: URL(string: "http://kc")!, webURL: URL(string: "http://web")!)
+private let config = AppConfig(gatewayURL: URL(string: "http://gw")!, authDomain: "kc", webURL: URL(string: "http://web")!)
 
 struct PKCETests {
     @Test func challengeIsTheRFCExample() {
@@ -54,8 +54,11 @@ struct AuthSessionTests {
         let session = AuthSession(config: config, store: InMemoryTokenStore())
         let url = session.beginSignIn()
         let items = Dictionary(uniqueKeysWithValues: (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
-        #expect(url.absoluteString.hasPrefix("http://kc/realms/wely-realm/protocol/openid-connect/auth?"))
-        #expect(items["client_id"] == "wely-client")
+        #expect(url.absoluteString.hasPrefix("https://kc/authorize?"))
+        #expect(items["client_id"] == "wely-ios-test")
+        // Without the audience Auth0 hands out an opaque token the services cannot read.
+        #expect(items["audience"] == "wely-api-test")
+        #expect(items["screen_hint"] == nil)
         #expect(items["redirect_uri"] == "wely://oauth-callback")
         #expect(items["response_type"] == "code")
         #expect(items["code_challenge_method"] == "S256")
@@ -91,10 +94,11 @@ struct AuthSessionTests {
 
         #expect(session.state == .signedIn)
         #expect(store.load()?.accessToken == "AT")
-        #expect(http.requests[0].url?.absoluteString == "http://kc/realms/wely-realm/protocol/openid-connect/token")
+        #expect(http.requests[0].url?.absoluteString == "https://kc/oauth/token")
         let form = http.form(0)
         #expect(form["grant_type"] == "password")
-        #expect(form["client_id"] == "wely-client")
+        #expect(form["client_id"] == "wely-ios-test")
+        #expect(form["audience"] == "wely-api-test")
         #expect(form["username"] == "robin")
         #expect(form["password"] == "p&ss=word")
         // offline_access, or closing the app for half an hour signs the user out.
@@ -102,7 +106,7 @@ struct AuthSessionTests {
     }
 
     @Test func aWrongPasswordIsInvalidCredentials() async {
-        let http = StubTransport([(401, #"{"error":"invalid_grant","error_description":"Invalid user credentials"}"#)])
+        let http = StubTransport([(403, #"{"error":"invalid_grant","error_description":"Wrong email or password."}"#)])
         let session = AuthSession(config: config, store: InMemoryTokenStore(), http: http)
         await #expect(throws: AuthError.invalidCredentials) {
             try await session.signIn(username: "robin", password: "nope")
@@ -110,18 +114,10 @@ struct AuthSessionTests {
         #expect(session.state == .signedOut)
     }
 
-    @Test func anAccountOwingAnActionIsNotReady() async {
-        let http = StubTransport([(400, #"{"error":"invalid_grant","error_description":"Account is not fully set up"}"#)])
+    @Test func otherSignInRefusalsKeepAuth0sWords() async {
+        let http = StubTransport([(403, #"{"error":"unauthorized_client","error_description":"Grant type 'password' not allowed for the client."}"#), (503, "")])
         let session = AuthSession(config: config, store: InMemoryTokenStore(), http: http)
-        await #expect(throws: AuthError.accountNotReady) {
-            try await session.signIn(username: "robin", password: "pw")
-        }
-    }
-
-    @Test func otherSignInRefusalsKeepKeycloaksWords() async {
-        let http = StubTransport([(401, #"{"error":"unauthorized_client","error_description":"Client not allowed for direct access grants"}"#), (503, "")])
-        let session = AuthSession(config: config, store: InMemoryTokenStore(), http: http)
-        await #expect(throws: AuthError.server("Client not allowed for direct access grants")) {
+        await #expect(throws: AuthError.server("Grant type 'password' not allowed for the client.")) {
             try await session.signIn(username: "robin", password: "pw")
         }
         await #expect(throws: AuthError.server("HTTP 503")) {
@@ -129,15 +125,14 @@ struct AuthSessionTests {
         }
     }
 
-    @Test func registrationOpensKeycloaksSignUpForm() {
+    @Test func signUpOpensAuth0sSignUpScreen() {
         let session = AuthSession(config: config, store: InMemoryTokenStore())
-        let url = session.beginSignIn(registration: true)
-        #expect(url.absoluteString.hasPrefix("http://kc/realms/wely-realm/protocol/openid-connect/registrations?"))
-        #expect(url.absoluteString.contains("code_challenge="))
-    }
-
-    @Test func resetPasswordPointsAtKeycloaksForm() {
-        #expect(config.resetPasswordURL.absoluteString == "http://kc/realms/wely-realm/login-actions/reset-credentials?client_id=wely-client")
+        let url = session.beginSignIn(signUp: true)
+        let items = Dictionary(uniqueKeysWithValues: (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        #expect(url.absoluteString.hasPrefix("https://kc/authorize?"))
+        #expect(items["screen_hint"] == "signup")
+        #expect(items["audience"] == "wely-api-test")
+        #expect(items["code_challenge"]?.isEmpty == false)
     }
 
     @Test func aForeignStateIsRefused() async {
@@ -149,7 +144,7 @@ struct AuthSessionTests {
         #expect(session.state == .signedOut)
     }
 
-    @Test func aKeycloakErrorIsSurfaced() async {
+    @Test func anAuth0ErrorIsSurfaced() async {
         let session = AuthSession(config: config, store: InMemoryTokenStore(), http: StubTransport([]))
         _ = session.beginSignIn()
         await #expect(throws: AuthError.server("denied")) {
@@ -174,6 +169,25 @@ struct AuthSessionTests {
         #expect(http.form(0)["refresh_token"] == "RT0")
     }
 
+    @Test func aRefreshWithoutANewRefreshTokenKeepsTheOldOne() async throws {
+        let expiring = TokenSet(accessToken: "old", refreshToken: "RT0", idToken: nil, expiresAt: .now)
+        let store = InMemoryTokenStore(expiring)
+        let session = AuthSession(config: config, store: store, http: StubTransport([(200, #"{"access_token":"AT","expires_in":300}"#)]))
+
+        #expect(try await session.validAccessToken() == "AT")
+        #expect(store.load()?.refreshToken == "RT0")
+    }
+
+    @Test func aRefreshRefusedByAuth0SignsOut() async {
+        // Auth0 answers a revoked or reused refresh token with 403 invalid_grant.
+        let store = InMemoryTokenStore(TokenSet(accessToken: "old", refreshToken: "RT0", idToken: nil, expiresAt: .now))
+        let session = AuthSession(config: config, store: store, http: StubTransport([(403, #"{"error":"invalid_grant","error_description":"Unknown or invalid refresh token."}"#)]))
+
+        await #expect(throws: AuthError.sessionExpired) { try await session.validAccessToken() }
+        #expect(session.state == .signedOut)
+        #expect(store.load() == nil)
+    }
+
     @Test func aRefusedRefreshSignsOut() async {
         let expiring = TokenSet(accessToken: "old", refreshToken: "RT0", idToken: nil, expiresAt: .now)
         let store = InMemoryTokenStore(expiring)
@@ -195,7 +209,7 @@ struct AuthSessionTests {
         #expect(store.load() == expiring)
     }
 
-    @Test func aKeycloakOutageKeepsTheSession() async {
+    @Test func anAuth0OutageKeepsTheSession() async {
         let expiring = TokenSet(accessToken: "old", refreshToken: "RT0", idToken: nil, expiresAt: .now)
         let session = AuthSession(config: config, store: InMemoryTokenStore(expiring), http: StubTransport([(502, "<html>")]))
 
@@ -225,7 +239,7 @@ struct AuthSessionTests {
         #expect(session.state == .signedOut)
     }
 
-    @Test func signOutClearsAndCallsKeycloak() async {
+    @Test func signOutClearsAndRevokesTheRefreshToken() async {
         let tokens = TokenSet(accessToken: "a", refreshToken: "RT", idToken: nil, expiresAt: .distantFuture)
         let http = StubTransport([(204, "")])
         let store = InMemoryTokenStore(tokens)
@@ -235,8 +249,9 @@ struct AuthSessionTests {
 
         #expect(session.state == .signedOut)
         #expect(store.load() == nil)
-        #expect(http.requests.first?.url?.absoluteString == "http://kc/realms/wely-realm/protocol/openid-connect/logout")
-        #expect(http.form(0)["refresh_token"] == "RT")
+        #expect(http.requests.first?.url?.absoluteString == "https://kc/oauth/revoke")
+        #expect(http.form(0)["token"] == "RT")
+        #expect(http.form(0)["client_id"] == "wely-ios-test")
     }
 }
 

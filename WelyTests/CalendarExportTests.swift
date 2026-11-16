@@ -19,7 +19,7 @@ struct CalendarExportTests {
     }
 
     @Test func linksBackToTheEventPageOnTheWebFront() {
-        let config = AppConfig(gatewayURL: URL(string: "https://gw")!, keycloakURL: URL(string: "https://kc")!,
+        let config = AppConfig(gatewayURL: URL(string: "https://gw")!, authDomain: "kc",
                                webURL: URL(string: "https://dev-web.welylabs.app")!)
         #expect(CalendarExport.eventURL(event(), config: config).absoluteString == "https://dev-web.welylabs.app/event/e1")
     }
