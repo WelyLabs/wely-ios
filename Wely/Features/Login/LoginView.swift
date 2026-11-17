@@ -1,8 +1,8 @@
 import AuthenticationServices
 import SwiftUI
 
-/// The welcome screen: Wely's logo and the sign-in form, on the app's own screen — the same
-/// composition as the Keycloak theme (brand, pitch, a narrow card on the warm canvas).
+/// The welcome screen: Wely's logo and the sign-in form, on the app's own screen: brand, pitch,
+/// a narrow card on the warm canvas.
 ///
 /// Signing up, resetting a password, and Google or GitHub sign-in open Auth0's Universal Login: Auth0 has no reset URL of
 /// its own, its login page carries the « forgot password » link.
@@ -245,8 +245,7 @@ extension WelyField where Trailing == EmptyView {
     }
 }
 
-/// The login screen's background: the warm canvas under three slowly drifting colour fields,
-/// as the Keycloak theme draws it.
+/// The login screen's background: the warm canvas under three slowly drifting colour fields.
 struct BrandBackdrop: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
